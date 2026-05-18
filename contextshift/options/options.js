@@ -4,9 +4,10 @@
 function qs(id) { return document.getElementById(id); }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Known broken/retired models that should be replaced with the current default
-  const BROKEN_MODELS = [
-    'nvidia/llama-3.1-nemotron-70b-instruct'
+  // Only these models are confirmed working — anything else gets replaced
+  const WORKING_MODELS = [
+    'meta/llama-3.1-8b-instruct',
+    'nvidia/nemotron-mini-4b-instruct'
   ];
 
   chrome.storage.local.get(['nim_api_key', 'nim_model', 'summ_mode', 'max_len', 'save_history'], (data) => {
@@ -14,16 +15,16 @@ document.addEventListener('DOMContentLoaded', () => {
       qs('nim-api-key').value = data.nim_api_key;
     }
 
-    // Auto-migrate away from known broken models
+    // Use stored model only if it's in the known-good list
     const storedModel = data.nim_model || '';
-    const effectiveModel = (!storedModel || BROKEN_MODELS.includes(storedModel))
-      ? CONTEXTSHIFT_CONFIG.NIM_MODEL
-      : storedModel;
+    const effectiveModel = WORKING_MODELS.includes(storedModel)
+      ? storedModel
+      : CONTEXTSHIFT_CONFIG.NIM_MODEL;
 
     qs('nim-model').value = effectiveModel;
 
-    // Persist migration immediately so test/save both use the good model
-    if (BROKEN_MODELS.includes(storedModel)) {
+    // Persist correction immediately so test/save both use the good model
+    if (!WORKING_MODELS.includes(storedModel)) {
       chrome.storage.local.set({ nim_model: effectiveModel });
     }
 
