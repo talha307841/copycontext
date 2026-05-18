@@ -224,3 +224,31 @@ header {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+/* Privacy note */
+.cs-privacy-note {
+  margin: 12px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8888aa);
+  line-height: 1.4;
+  font-style: italic;
+}
+/* Generate section */
+#cs-generate-section {
+  margin: 18px 20px 0 20px;
+}
+#cs-generate-btn {
+  width: 100%;
+  background: var(--accent, #7c5cfc);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 12px 0 var(--accent-glow, rgba(124,92,252,0.3));
+  transition: box-shadow 0.15s, background 0.15s;
+}
+#cs-generate-btn:hover {
+  box-shadow: 0 4px 20px 0 var(--accent-glow, rgba(124,92,252,0.5));
+}

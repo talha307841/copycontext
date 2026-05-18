@@ -16,27 +16,14 @@
     <div id="cs-platform-badge"></div>
     <section id="cs-capture-section">
       <button id="cs-capture-btn">Capture Conversation</button>
+      <p class="cs-privacy-note">🔒 Your key is stored only in Chrome's local storage on this device. It is only ever sent to integrate.api.nvidia.com — never to any other server.</p>
     </section>
-    <section id="cs-mode-section" style="display:none;">
-      <div class="cs-mode-cards">
-        <div class="cs-mode-card" data-mode="full">
-          <div class="cs-mode-title">Full Context</div>
-          <div class="cs-mode-desc">Every message, nothing lost</div>
-        </div>
-        <div class="cs-mode-card" data-mode="smart">
-          <div class="cs-mode-title">Smart Summary</div>
-          <div class="cs-mode-desc">AI compresses to what matters</div>
-        </div>
-        <div class="cs-mode-card" data-mode="custom">
-          <div class="cs-mode-title">Custom Focus</div>
-          <div class="cs-mode-desc">Tell me what's important</div>
-          <input id="cs-custom-focus" type="text" placeholder="What should I focus on?" style="display:none;"/>
-        </div>
-      </div>
-      <button id="cs-generate-btn">Generate</button>
+    <section id="cs-generate-section" style="display:none;">
+      <button id="cs-generate-btn">Generate Smart Summary with NVIDIA NIM</button>
     </section>
     <section id="cs-preview-section" style="display:none;">
       <textarea id="cs-preview" readonly></textarea>
+      <p class="cs-privacy-note">🔒 Your key is stored only in Chrome's local storage on this device. It is only ever sent to integrate.api.nvidia.com — never to any other server.</p>
     </section>
     <section id="cs-transfer-section" style="display:none;">
       <button id="cs-copy-btn">Copy to Clipboard</button>
