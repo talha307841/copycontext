@@ -95,9 +95,6 @@ function extractiveSummarize(messages) {
   const shiftNote = hadShift ? ` The conversation evolved, ending with: "${lastUser.slice(0, 100)}${lastUser.length > 100 ? '...' : ''}".` : "";
   const keyResponse = longestAssistant.slice(0, 300) + (longestAssistant.length > 300 ? "..." : "");
   return `This conversation covers the topic: "${topicHint}..." across ${messages.length} messages. The user's goal was: ${firstUser.slice(0, 150)}${firstUser.length > 150 ? "..." : ""}. The assistant's key response: ${keyResponse}${shiftNote} The user's last request was: "${lastUser.slice(0, 200)}${lastUser.length > 200 ? "..." : ""}". (Note: this is a local fallback summary — add your NVIDIA NIM API key in ContextShift Settings for full AI-compressed handoffs.)`;
-
----
-⚠️ *Auto-summarized locally — no NIM key configured.*`;
 }
 
 function wrapForInjection(nimSummary, sourcePlatform, targetPlatform) {
