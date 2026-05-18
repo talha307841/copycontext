@@ -1,18 +1,5 @@
 // ContextShift background.js — Chrome Extension MV3 Service Worker
-
-const NIM_ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NIM_MODEL = 'nvidia/llama-3.1-nemotron-70b-instruct';
-const NIM_SYSTEM_PROMPT = `You are a conversation context transfer assistant. Given a conversation between a user and an AI assistant, create a concise handoff brief that lets a NEW AI assistant immediately understand:\n1. What was being worked on (project/task/goal)\n2. Key decisions already made\n3. Important code, data, or specific details mentioned\n4. What the user needs next (the unresolved question or next step)\n\nFormat your response as:\n## Context Handoff Brief\n**Working on:** [1-2 sentences]\n**Key decisions/facts:** [bullet list]\n**Current code/data:** [only if present, code blocks]\n**Next step needed:** [1 sentence — what the user was about to ask or needs]\n\nBe extremely concise. The brief must fit in one message. Omit pleasantries and filler from the original conversation.`;
-
-// Extractive fallback summarizer
-function extractiveSummarize(messages) {
-  if (!messages || messages.length === 0) return 'No conversation found.';
-  const firstUser = messages.find(m => m.role === 'user');
-  const lastUser = [...messages].reverse().find(m => m.role === 'user');
-  const longestAssistant = messages.filter(m => m.role === 'assistant').sort((a, b) => b.content.length - a.content.length)[0];
-  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
-  return `## Context Handoff (Auto-summarized)\n\n**Original question:** ${firstUser?.content?.slice(0, 300) || 'N/A'}\n\n**Key response:** ${longestAssistant?.content?.slice(0, 500) || 'N/A'}\n\n**Where we left off:** ${lastUser?.content?.slice(0, 300) || 'N/A'}\n\n**Last AI response:** ${lastAssistant?.content?.slice(0, 300) || 'N/A'}\n\n(${messages.length} total messages in original conversation)`;
-}
+// config.js and summarizer.js are loaded before this file via manifest.json
 
 // Format full context for handoff
 function formatFullContext(messages, sourcePlatform, targetPlatform) {
@@ -134,50 +121,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'SUMMARIZE_WITH_NIM') {
-    chrome.storage.local.get(['nim_api_key'], async (data) => {
-      const key = data.nim_api_key;
-      const { conversation, mode, customFocus, messages } = message;
-      if (!key) {
-        // Fallback
-        const fallback = extractiveSummarize(messages);
-        sendResponse({ success: false, error: 'No NIM key', fallback });
-        return;
-      }
-      try {
-        let userPrompt = conversation;
-        if (mode === 'custom' && customFocus) {
-          userPrompt = `Focus on: ${customFocus}\n\n${conversation}`;
-        }
-        const body = JSON.stringify({
-          model: NIM_MODEL,
-          max_tokens: 1000,
-          stream: false,
-          messages: [
-            { role: 'system', content: NIM_SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt }
-          ]
+    const { messages, mode, customFocus } = message;
+
+    chrome.storage.local.get(['nim_api_key'], async (stored) => {
+      const runtimeConfig = {
+        ...CONTEXTSHIFT_CONFIG,
+        NIM_API_KEY: stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY
+      };
+
+      const result = await callNIMSummarizer({
+        messages,
+        mode,
+        customFocus,
+        config: runtimeConfig
+      });
+
+      if (result.success) {
+        sendResponse({ success: true, summary: result.summary });
+      } else {
+        const fallbackText = result.fallback || extractiveSummarize(messages);
+        sendResponse({
+          success: false,
+          reason: result.reason,
+          summary: fallbackText,
+          usedFallback: true
         });
-        const resp = await fetch(NIM_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-          },
-          body
-        });
-        if (!resp.ok) {
-          const fallback = extractiveSummarize(messages);
-          sendResponse({ success: false, error: 'NIM API error', fallback });
-          return;
-        }
-        const data = await resp.json();
-        const summary = data.choices?.[0]?.message?.content || '';
-        sendResponse({ success: true, summary });
-      } catch (e) {
-        const fallback = extractiveSummarize(messages);
-        sendResponse({ success: false, error: e.message, fallback });
       }
     });
+
     return true;
   }
 

@@ -1,11 +1,23 @@
 // ContextShift options.js — Settings page logic
+// config.js is loaded before this file via service worker scripts
+
 function qs(id) { return document.getElementById(id); }
 
+function showStatus(msg, type = '') {
+  const bar = qs('nim-status');
+  bar.textContent = msg;
+  bar.style.display = '';
+  bar.className = 'status-bar ' + type;
+  setTimeout(() => bar.style.display = 'none', 5000);
+}
+
 function loadSettings() {
-  chrome.storage.local.get([
-    'nim_api_key', 'summ_mode', 'max_len', 'save_history'
-  ], data => {
-    if (data.nim_api_key) qs('nim-key').value = data.nim_api_key;
+  chrome.storage.local.get(['nim_api_key', 'summ_mode', 'max_len', 'save_history'], data => {
+    if (data.nim_api_key) {
+      const key = data.nim_api_key;
+      qs('nim-api-key').value = key;
+      qs('nim-api-key').placeholder = `Current: ${key.slice(0, 10)}...${key.slice(-4)}`;
+    }
     if (data.summ_mode) {
       qs('mode-full').checked = data.summ_mode === 'full';
       qs('mode-smart').checked = data.summ_mode === 'smart';
@@ -21,16 +33,6 @@ function loadSettings() {
   });
 }
 
-function saveSettings() {
-  const settings = {
-    nim_api_key: qs('nim-key').value.trim(),
-    summ_mode: document.querySelector('input[name="summ-mode"]:checked').value,
-    max_len: parseInt(qs('max-len').value, 10),
-    save_history: qs('save-history').checked
-  };
-  chrome.storage.local.set(settings);
-}
-
 function debounce(fn, ms) {
   let t;
   return function() {
@@ -39,59 +41,73 @@ function debounce(fn, ms) {
   };
 }
 
-qs('nim-key').oninput = debounce(saveSettings, 500);
-qs('mode-full').onchange = saveSettings;
-qs('mode-smart').onchange = saveSettings;
-qs('mode-custom').onchange = saveSettings;
+// Save NIM key
+document.getElementById('save-nim-key').addEventListener('click', () => {
+  const key = qs('nim-api-key').value.trim();
+  if (!key || key.length < 10) {
+    showStatus('Please enter a valid NIM API key', 'error');
+    return;
+  }
+  chrome.storage.local.set({ nim_api_key: key }, () => {
+    showStatus('✓ API key saved securely', 'success');
+  });
+});
+
+// Test connection
+document.getElementById('test-nim-key').addEventListener('click', () => {
+  showStatus('Testing connection...', 'info');
+  chrome.storage.local.get(['nim_api_key'], async (stored) => {
+    const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
+    if (!key || key.includes('PASTE-YOUR-KEY')) {
+      showStatus('No API key saved yet', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(CONTEXTSHIFT_CONFIG.NIM_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model: CONTEXTSHIFT_CONFIG.NIM_MODEL,
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'Hi' }]
+        })
+      });
+      if (res.ok) {
+        showStatus(`✓ Connected — model: ${CONTEXTSHIFT_CONFIG.NIM_MODEL}`, 'success');
+      } else if (res.status === 401) {
+        showStatus('✗ Invalid API key', 'error');
+      } else {
+        showStatus(`✗ Error ${res.status}`, 'error');
+      }
+    } catch (e) {
+      showStatus('✗ Network error — check your connection', 'error');
+    }
+  });
+});
+
+// Summary mode selection
+qs('mode-full').onchange = () => chrome.storage.local.set({ summ_mode: 'full' });
+qs('mode-smart').onchange = () => chrome.storage.local.set({ summ_mode: 'smart' });
+qs('mode-custom').onchange = () => chrome.storage.local.set({ summ_mode: 'custom' });
+
+// Max length slider
 qs('max-len').oninput = function() {
   qs('max-len-val').textContent = this.value;
-  saveSettings();
+  chrome.storage.local.set({ max_len: parseInt(this.value, 10) });
 };
-qs('save-history').onchange = saveSettings;
 
-qs('nim-save').onclick = saveSettings;
+// Save history toggle
+qs('save-history').onchange = function() {
+  chrome.storage.local.set({ save_history: this.checked });
+};
 
+// Clear history
 qs('clear-history').onclick = function() {
   chrome.storage.local.remove(['cs_history'], () => {
     alert('History cleared.');
-  });
-};
-
-qs('nim-test').onclick = function() {
-  const key = qs('nim-key').value.trim();
-  if (!key) {
-    qs('nim-test-result').textContent = 'Enter your NIM API key first.';
-    qs('nim-test-result').style.color = '#f87171';
-    return;
-  }
-  qs('nim-test-result').textContent = 'Testing...';
-  qs('nim-test-result').style.color = '#7c5cfc';
-  fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`
-    },
-    body: JSON.stringify({
-      model: 'nvidia/llama-3.1-nemotron-70b-instruct',
-      max_tokens: 1,
-      stream: false,
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant.' },
-        { role: 'user', content: 'Hello' }
-      ]
-    })
-  }).then(r => r.json()).then(data => {
-    if (data.choices && data.choices[0]?.message?.content) {
-      qs('nim-test-result').textContent = `Success! Model: ${data.model || 'N/A'}`;
-      qs('nim-test-result').style.color = '#34d399';
-    } else {
-      qs('nim-test-result').textContent = 'Invalid key or error.';
-      qs('nim-test-result').style.color = '#f87171';
-    }
-  }).catch(() => {
-    qs('nim-test-result').textContent = 'Connection failed.';
-    qs('nim-test-result').style.color = '#f87171';
   });
 };
 

@@ -22,7 +22,8 @@
     "https://integrate.api.nvidia.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["config.js", "summarizer.js", "background.js"]
   },
   "action": {
     "default_popup": "popup/popup.html",

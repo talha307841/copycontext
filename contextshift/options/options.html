@@ -10,13 +10,29 @@
 <body>
   <div id="cs-options">
     <h2>ContextShift Settings</h2>
-    <section>
-      <label for="nim-key">NVIDIA NIM API Key</label>
-      <input type="password" id="nim-key" placeholder="Paste your NIM API key here" autocomplete="off" />
-      <button id="nim-save">Save</button>
-      <button id="nim-test">Test Connection</button>
-      <span id="nim-test-result"></span>
-      <div class="desc">Your NIM key is stored only on this device. Never transmitted to any server.</div>
+    <section class="settings-section">
+      <h2>NVIDIA NIM API Key</h2>
+      <p class="description">
+        Powers smart summarization. Get your free key at
+        <a href="https://build.nvidia.com" target="_blank">build.nvidia.com</a>
+        → Sign in → "Get API Key"
+      </p>
+      <div class="input-row">
+        <input
+          type="password"
+          id="nim-api-key"
+          placeholder="nvapi-..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="save-nim-key" class="btn-primary">Save</button>
+        <button id="test-nim-key" class="btn-secondary">Test Connection</button>
+      </div>
+      <p class="privacy-note">
+        🔒 Your key is stored only in Chrome's local storage on this device.
+        It is only ever sent to <code>integrate.api.nvidia.com</code> — never to any other server.
+      </p>
+      <div id="nim-status" class="status-bar" style="display:none;"></div>
     </section>
     <section>
       <label>Summarization Default Mode</label>
