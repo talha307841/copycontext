@@ -55,10 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
         ? CONTEXTSHIFT_CONFIG.NIM_ENDPOINT
         : 'https://integrate.api.nvidia.com/v1/chat/completions';
 
-      const model = stored.nim_model
+      const model = (stored.nim_model || '')
+        .trim()
         || (typeof CONTEXTSHIFT_CONFIG !== 'undefined'
           ? CONTEXTSHIFT_CONFIG.NIM_MODEL
           : 'nvidia/llama-3.1-nemotron-70b-instruct');
+
+      if (!model || !model.includes('/')) {
+        showNimStatus('✗ Invalid model format. Use a full model id like nvidia/llama-3.1-nemotron-70b-instruct', 'error');
+        return;
+      }
 
       try {
         const res = await fetch(endpoint, {
@@ -91,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
           showNimStatus('✗ Invalid API key — check it at build.nvidia.com', 'error');
         } else if (res.status === 403) {
           showNimStatus(`✗ Access denied (403). Your key may not have access to model ${model}. ${apiMessage}`.trim(), 'error');
+        } else if (res.status === 404) {
+          showNimStatus(`✗ Not found (404). Model ${model} may be unavailable for your account, misspelled, or retired. ${apiMessage}`.trim(), 'error');
         } else if (res.status === 429) {
           showNimStatus('✓ Key valid (rate limited) — NIM is connected', 'success');
         } else {
