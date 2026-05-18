@@ -94,34 +94,34 @@
       pasteBtn.onmouseenter = () => pasteBtn.style.boxShadow = '0 4px 24px 0 rgba(124,92,252,0.35)';
       pasteBtn.onmouseleave = () => pasteBtn.style.boxShadow = '0 2px 16px 0 rgba(124,92,252,0.14)';
       pasteBtn.onclick = () => {
-      pasteBtn.innerText = 'Pasting...';
+      pasteBtn.innerText = '⏳ Summarizing...';
       pasteBtn.disabled = true;
       let settled = false;
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
-        pasteBtn.innerText = 'Timeout';
+        pasteBtn.innerText = '⚠ Timeout';
         setTimeout(() => {
           pasteBtn.innerText = '⇥ Paste Context';
           pasteBtn.disabled = false;
-        }, 1800);
-      }, 8000);
-      chrome.runtime.sendMessage({ action: 'PASTE_LAST_CONTEXT_IN_TAB' }, (resp) => {
+        }, 2000);
+      }, 40000); // NIM can take up to ~30s
+      chrome.runtime.sendMessage({ action: 'NIM_SUMMARIZE_AND_PASTE' }, (resp) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         if (resp && resp.success) {
-          pasteBtn.innerText = '✓ Pasted';
+          pasteBtn.innerText = resp.usedNim ? '✓ NIM Pasted' : '✓ Pasted';
           setTimeout(() => {
             pasteBtn.innerText = '⇥ Paste Context';
             pasteBtn.disabled = false;
-          }, 1600);
+          }, 1800);
         } else {
-          pasteBtn.innerText = 'No Context';
+          pasteBtn.innerText = resp?.error === 'No context captured yet' ? 'No Context' : '⚠️ Error';
           setTimeout(() => {
             pasteBtn.innerText = '⇥ Paste Context';
             pasteBtn.disabled = false;
-          }, 2000);
+          }, 2200);
         }
       });
       };

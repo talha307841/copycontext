@@ -59,6 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         timestamp: Date.now(),
         sourcePlatform,
         messageCount: resp.messages.length,
+        messages: resp.messages,
         preview: fullContext.slice(0, 100),
         fullContext,
         summary: ''
@@ -229,6 +230,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'NIM_SUMMARIZE_AND_PASTE') {
+    // Called from overlay content script — summarizes last captured context with NIM then injects into page
+    const tabId = sender?.tab?.id;
+    if (!tabId) { sendResponse({ success: false, error: 'No tab' }); return true; }
+
+    chrome.storage.local.get(['cs_last_context', 'nim_api_key', 'nim_model'], async (stored) => {
+      const lastCtx = stored.cs_last_context;
+      const messages = lastCtx?.messages;
+
+      if (!messages?.length) {
+        // No messages stored — fall back to pasting raw fullContext
+        const rawText = lastCtx?.fullContext;
+        if (!rawText) { sendResponse({ success: false, error: 'No context captured yet' }); return; }
+        chrome.tabs.sendMessage(tabId, { action: 'INJECT_TEXT', text: rawText }, (r) => {
+          sendResponse(r?.success ? { success: true, usedNim: false } : { success: false });
+        });
+        return;
+      }
+
+      const runtimeConfig = {
+        ...CONTEXTSHIFT_CONFIG,
+        NIM_API_KEY: stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY,
+        NIM_MODEL: stored.nim_model || CONTEXTSHIFT_CONFIG.NIM_MODEL
+      };
+      const result = await callNIMSummarizer({ messages, mode: 'smart', customFocus: null, config: runtimeConfig });
+      const textToPaste = result.success ? result.summary : (lastCtx.fullContext || extractiveSummarize(messages));
+
+      chrome.tabs.sendMessage(tabId, { action: 'INJECT_TEXT', text: textToPaste }, (r) => {
+        sendResponse({ success: r?.success || false, usedNim: result.success });
+      });
+    });
+    return true;
+  }
+
   if (message.action === 'INJECT_CONTEXT') {
     const { targetUrl, contextText } = message;
     chrome.tabs.create({ url: targetUrl, active: true }, (tab) => {
@@ -271,8 +306,15 @@ chrome.runtime.onConnect.addListener((port) => {
     chrome.storage.local.get(['nim_api_key', 'nim_model'], async (stored) => {
       const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
 
+      // Helper — never crash if popup already closed
+      function safePost(msg) {
+        try { port.postMessage(msg); } catch (_) {}
+      }
+
       if (!key || key.includes('PASTE-YOUR-KEY')) {
-        port.postMessage({ error: true, status: 'no_key', fallback: extractiveSummarize(messages) });
+        const fallback = extractiveSummarize(messages);
+        safePost({ error: true, status: 'no_key', fallback });
+        chrome.storage.local.set({ cs_nim_stream: { status: 'error', text: fallback, errorStatus: 'no_key', ts: Date.now() } });
         return;
       }
 
@@ -281,6 +323,10 @@ chrome.runtime.onConnect.addListener((port) => {
       const systemPrompt = isCustom ? buildCustomSystemPrompt(customFocus) : NIM_SYSTEM_PROMPT;
       const maxTokens = isCustom ? CONTEXTSHIFT_CONFIG.MAX_TOKENS_CUSTOM : CONTEXTSHIFT_CONFIG.MAX_TOKENS_SUMMARY;
       const conversationText = formatConversationForNIM(messages, CONTEXTSHIFT_CONFIG.MAX_INPUT_CHARS);
+
+      // Mark stream in-progress and keep SW alive
+      chrome.storage.local.set({ cs_nim_stream: { status: 'streaming', text: '', ts: Date.now() } });
+      chrome.alarms.create('nim_keepalive', { periodInMinutes: 0.4 });
 
       try {
         const response = await fetch(CONTEXTSHIFT_CONFIG.NIM_ENDPOINT, {
@@ -303,13 +349,18 @@ chrome.runtime.onConnect.addListener((port) => {
         });
 
         if (!response.ok) {
-          port.postMessage({ error: true, status: response.status, fallback: extractiveSummarize(messages) });
+          const fallback = extractiveSummarize(messages);
+          safePost({ error: true, status: response.status, fallback });
+          chrome.storage.local.set({ cs_nim_stream: { status: 'error', text: fallback, errorStatus: response.status, ts: Date.now() } });
+          chrome.alarms.clear('nim_keepalive');
           return;
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let accumulated = '';
+        let storageFlushLen = 0;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -323,22 +374,45 @@ chrome.runtime.onConnect.addListener((port) => {
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6).trim();
             if (data === '[DONE]') {
-              port.postMessage({ done: true });
+              safePost({ done: true });
+              chrome.storage.local.set({ cs_nim_stream: { status: 'done', text: accumulated, ts: Date.now() } });
+              chrome.alarms.clear('nim_keepalive');
               return;
             }
             try {
               const parsed = JSON.parse(data);
               const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta) port.postMessage({ chunk: delta });
+              if (delta) {
+                accumulated += delta;
+                safePost({ chunk: delta });
+                // Flush to storage roughly every 80 chars to avoid write spam
+                if (accumulated.length - storageFlushLen >= 80) {
+                  storageFlushLen = accumulated.length;
+                  chrome.storage.local.set({ cs_nim_stream: { status: 'streaming', text: accumulated, ts: Date.now() } });
+                }
+              }
             } catch (_) {}
           }
         }
 
-        port.postMessage({ done: true });
+        safePost({ done: true });
+        chrome.storage.local.set({ cs_nim_stream: { status: 'done', text: accumulated, ts: Date.now() } });
+        chrome.alarms.clear('nim_keepalive');
 
       } catch (e) {
-        port.postMessage({ error: true, status: 'network', fallback: extractiveSummarize(messages) });
+        const fallback = extractiveSummarize(messages);
+        safePost({ error: true, status: 'network', fallback });
+        chrome.storage.local.set({ cs_nim_stream: { status: 'error', text: fallback, errorStatus: 'network', ts: Date.now() } });
+        chrome.alarms.clear('nim_keepalive');
       }
     });
   });
+});
+
+// Keep service worker alive while streaming
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'nim_keepalive') {
+    // Touch storage to prevent SW from going idle mid-stream
+    chrome.storage.local.get(['cs_nim_stream'], () => {});
+  }
 });

@@ -124,6 +124,25 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
   chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
     if (res && res.success) renderHistory(res.history);
   });
+
+  // Restore a completed NIM stream if popup was closed mid-generation (< 5 min old)
+  chrome.storage.local.get(['cs_nim_stream'], (data) => {
+    const s = data.cs_nim_stream;
+    if (!s || !s.text) return;
+    const age = Date.now() - (s.ts || 0);
+    if (age > 5 * 60 * 1000) return; // too old
+    if (s.status === 'done') {
+      qs('cs-preview-section').style.display = '';
+      qs('cs-transfer-section').style.display = '';
+      qs('cs-preview').value = s.text;
+      showStatus('✓ Summary restored — NVIDIA NIM', 'success');
+    } else if (s.status === 'streaming') {
+      qs('cs-preview-section').style.display = '';
+      qs('cs-transfer-section').style.display = '';
+      qs('cs-preview').value = s.text;
+      showStatus('✍️ Still generating... (background)');
+    }
+  });
 });
 
 // Settings gear
@@ -164,7 +183,7 @@ qs('cs-capture-btn').onclick = () => {
   });
 };
 
-// Generate button — streams via long-lived port
+// Generate button — streams via long-lived port with storage-backup fallback
 qs('cs-generate-btn').onclick = () => {
   if (!captured) return;
   const messages = captured.messages;
@@ -178,51 +197,84 @@ qs('cs-generate-btn').onclick = () => {
   setLoading(true);
 
   let fullText = '';
-  let port;
+  let streamDone = false;
+  let pollTimer = null;
 
-  try {
-    port = chrome.runtime.connect({ name: 'nimStream' });
-  } catch (e) {
-    setLoading(false);
-    showStatus('⚠️ Could not connect — reload the extension.', 'error');
-    return;
+  function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+  function startStoragePoll() {
+    if (pollTimer) return;
+    pollTimer = setInterval(() => {
+      chrome.storage.local.get(['cs_nim_stream'], (data) => {
+        const s = data.cs_nim_stream;
+        if (!s || streamDone) { stopPoll(); return; }
+        if (s.text && s.text.length > fullText.length) {
+          fullText = s.text;
+          qs('cs-preview').value = fullText;
+          qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
+          showStatus('✍️ Generating... (background)');
+        }
+        if (s.status === 'done') {
+          stopPoll(); streamDone = true;
+          setLoading(false);
+          showStatus('✓ Summary complete — NVIDIA NIM', 'success');
+          saveHistory(fullText, messages, sourcePlatform);
+        } else if (s.status === 'error') {
+          stopPoll(); streamDone = true;
+          setLoading(false);
+          const fallback = s.text || extractiveSummarize(messages);
+          qs('cs-preview').value = fallback;
+          showStatus(s.errorStatus === 'no_key'
+            ? '⚠️ No API key — add it in Settings. Showing local summary.'
+            : `⚠️ NIM error ${s.errorStatus || ''} — showing local summary.`, 'error');
+          saveHistory(fallback, messages, sourcePlatform);
+        }
+      });
+    }, 400);
   }
 
-  port.postMessage({ messages, mode: 'smart', customFocus: null });
+  // Clear previous stream record before starting
+  chrome.storage.local.remove('cs_nim_stream', () => {
+    let port;
+    try {
+      port = chrome.runtime.connect({ name: 'nimStream' });
+    } catch (e) {
+      setLoading(false);
+      showStatus('⚠️ Could not connect — reload the extension.', 'error');
+      return;
+    }
 
-  port.onMessage.addListener((msg) => {
-    if (msg.chunk) {
-      fullText += msg.chunk;
-      qs('cs-preview').value = fullText;
-      qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
-      showStatus('✍️ Streaming NVIDIA NIM response...');
-    } else if (msg.done) {
-      setLoading(false);
-      showStatus('✓ Summary complete — NVIDIA NIM', 'success');
-      saveHistory(fullText, messages, sourcePlatform);
-      port.disconnect();
-    } else if (msg.error) {
-      setLoading(false);
-      const fallback = msg.fallback || extractiveSummarize(messages);
-      qs('cs-preview').value = fallback;
-      if (msg.status === 'no_key') {
-        showStatus('⚠️ No API key — add it in Settings. Showing local summary.', 'error');
-      } else {
-        showStatus(`⚠️ NIM error ${msg.status || ''} — showing local summary.`, 'error');
+    port.postMessage({ messages, mode: 'smart', customFocus: null });
+
+    port.onMessage.addListener((msg) => {
+      if (msg.chunk) {
+        fullText += msg.chunk;
+        qs('cs-preview').value = fullText;
+        qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
+        showStatus('✍️ Streaming NVIDIA NIM response...');
+      } else if (msg.done) {
+        stopPoll(); streamDone = true;
+        setLoading(false);
+        showStatus('✓ Summary complete — NVIDIA NIM', 'success');
+        saveHistory(fullText, messages, sourcePlatform);
+        port.disconnect();
+      } else if (msg.error) {
+        stopPoll(); streamDone = true;
+        setLoading(false);
+        const fallback = msg.fallback || extractiveSummarize(messages);
+        qs('cs-preview').value = fallback;
+        showStatus(msg.status === 'no_key'
+          ? '⚠️ No API key — add it in Settings. Showing local summary.'
+          : `⚠️ NIM error ${msg.status || ''} — showing local summary.`, 'error');
+        saveHistory(fallback, messages, sourcePlatform);
+        port.disconnect();
       }
-      saveHistory(fallback, messages, sourcePlatform);
-      port.disconnect();
-    }
-  });
+    });
 
-  port.onDisconnect.addListener(() => {
-    setLoading(false);
-    if (!fullText) {
-      const fallback = extractiveSummarize(messages);
-      qs('cs-preview').value = fallback;
-      showStatus('⚠️ Connection dropped — showing local summary.', 'error');
-      saveHistory(fallback, messages, sourcePlatform);
-    }
+    // Port closes when popup closes (tab switch) — fall back to polling storage
+    port.onDisconnect.addListener(() => {
+      if (!streamDone) startStoragePoll();
+    });
   });
 };
 
