@@ -73,12 +73,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.ok) {
           showNimStatus(`✓ Connected successfully — model: ${model}`, 'success');
-        } else if (res.status === 401) {
+          return;
+        }
+
+        let apiMessage = '';
+        try {
+          const body = await res.json();
+          apiMessage = body?.error?.message || body?.message || '';
+        } catch (_) {
+          apiMessage = '';
+        }
+
+        if (res.status === 401) {
           showNimStatus('✗ Invalid API key — check it at build.nvidia.com', 'error');
+        } else if (res.status === 403) {
+          showNimStatus(`✗ Access denied (403). Your key may not have access to model ${model}. ${apiMessage}`.trim(), 'error');
         } else if (res.status === 429) {
           showNimStatus('✓ Key valid (rate limited) — NIM is connected', 'success');
         } else {
-          showNimStatus(`✗ API error ${res.status} — try again`, 'error');
+          showNimStatus(`✗ API error ${res.status}${apiMessage ? ` — ${apiMessage}` : ''}`, 'error');
         }
       } catch (e) {
         showNimStatus('✗ Network error — make sure you are online', 'error');
