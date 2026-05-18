@@ -56,34 +56,16 @@ document.getElementById('save-nim-key').addEventListener('click', () => {
 // Test connection
 document.getElementById('test-nim-key').addEventListener('click', () => {
   showStatus('Testing connection...', 'info');
-  chrome.storage.local.get(['nim_api_key'], async (stored) => {
-    const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
-    if (!key || key.includes('PASTE-YOUR-KEY')) {
-      showStatus('No API key saved yet', 'error');
-      return;
-    }
-    try {
-      const res = await fetch(CONTEXTSHIFT_CONFIG.NIM_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`
-        },
-        body: JSON.stringify({
-          model: CONTEXTSHIFT_CONFIG.NIM_MODEL,
-          max_tokens: 5,
-          messages: [{ role: 'user', content: 'Hi' }]
-        })
-      });
-      if (res.ok) {
-        showStatus(`✓ Connected — model: ${CONTEXTSHIFT_CONFIG.NIM_MODEL}`, 'success');
-      } else if (res.status === 401) {
-        showStatus('✗ Invalid API key', 'error');
-      } else {
-        showStatus(`✗ Error ${res.status}`, 'error');
-      }
-    } catch (e) {
-      showStatus('✗ Network error — check your connection', 'error');
+  // Use background service worker to bypass CORS
+  chrome.runtime.sendMessage({ action: 'TEST_NIM_CONNECTION' }, (resp) => {
+    if (resp?.success) {
+      showStatus(`✓ Connected — model: ${resp.model}`, 'success');
+    } else if (resp?.status === 401) {
+      showStatus('✗ Invalid API key', 'error');
+    } else if (resp?.status) {
+      showStatus(`✗ Error ${resp.status}: ${resp.error || 'Unknown'}`, 'error');
+    } else {
+      showStatus(resp?.error || '✗ Connection failed', 'error');
     }
   });
 });

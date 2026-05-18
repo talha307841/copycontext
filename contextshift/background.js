@@ -189,6 +189,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'TEST_NIM_CONNECTION') {
+    chrome.storage.local.get(['nim_api_key'], async (stored) => {
+      const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
+      if (!key || key.includes('PASTE-YOUR-KEY')) {
+        sendResponse({ error: 'No API key saved yet' });
+        return;
+      }
+      try {
+        const res = await fetch(CONTEXTSHIFT_CONFIG.NIM_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model: CONTEXTSHIFT_CONFIG.NIM_MODEL,
+            max_tokens: 5,
+            stream: false,
+            messages: [{ role: 'user', content: 'test' }]
+          })
+        });
+        if (res.ok) {
+          sendResponse({ success: true, model: CONTEXTSHIFT_CONFIG.NIM_MODEL });
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          sendResponse({
+            success: false,
+            status: res.status,
+            error: errorData.error?.message || `HTTP ${res.status}`
+          });
+        }
+      } catch (e) {
+        sendResponse({ success: false, error: `Network error: ${e.message}` });
+      }
+    });
+    return true;
+  }
+
   if (message.action === 'INJECT_CONTEXT') {
     const { targetUrl, contextText } = message;
     chrome.tabs.create({ url: targetUrl, active: true }, (tab) => {
