@@ -21,10 +21,10 @@ const SELECTORS = {
     inputType: 'contenteditable',
   },
   claude: {
-    messageContainer: '[data-testid="human-turn"], [data-testid="ai-turn"], .human-turn, .assistant-turn',
+    messageContainer: '[data-testid="human-turn"], [data-testid="ai-turn"], [data-testid*="turn"], .human-turn, .assistant-turn',
     getRoleAttr: (el) => (el.dataset.testid?.includes('human') || String(el.className).includes('human')) ? 'user' : 'assistant',
-    getContent: (el) => el.querySelector('.prose p, .whitespace-pre-wrap, [class*="message"]')?.innerText?.trim() || el.innerText?.trim(),
-    inputBox: '[contenteditable="true"].ProseMirror, div[contenteditable="true"][placeholder]',
+    getContent: (el) => el.querySelector('[data-testid="message-content"], .prose, .whitespace-pre-wrap, [class*="message"]')?.innerText?.trim() || el.innerText?.trim(),
+    inputBox: '[contenteditable="true"].ProseMirror, div.ProseMirror[contenteditable="true"], div[contenteditable="true"][placeholder], [contenteditable="true"][data-placeholder]',
     inputType: 'contenteditable',
   },
   gemini: {
@@ -131,13 +131,21 @@ function waitForChatContainer(platform, callback) {
   const sel = SELECTORS[platform]?.messageContainer;
   if (!sel) return callback();
   if (document.querySelector(sel)) return callback();
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    observer.disconnect();
+    callback();
+  };
   const observer = new MutationObserver(() => {
     if (document.querySelector(sel)) {
-      observer.disconnect();
-      callback();
+      finish();
     }
   });
   observer.observe(document.body, { childList: true, subtree: true });
+  // Never wait forever. If selector is stale, fall back to universal extraction path.
+  setTimeout(finish, 5000);
 }
 
 // Listen for messages

@@ -44,7 +44,20 @@
     btn.onclick = () => {
       btn.innerText = '⏳...';
       btn.disabled = true;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        btn.innerText = '⚠ Timeout';
+        setTimeout(() => {
+          btn.innerText = '⎌ Capture';
+          btn.disabled = false;
+        }, 1800);
+      }, 8000);
       chrome.runtime.sendMessage({ action: 'CAPTURE_AND_STORE_FROM_TAB' }, (resp) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         if (resp && resp.success) {
           btn.innerText = `✓ ${resp.messageCount} Saved`;
           setTimeout(() => {
@@ -81,7 +94,20 @@
     pasteBtn.onclick = () => {
       pasteBtn.innerText = 'Pasting...';
       pasteBtn.disabled = true;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        pasteBtn.innerText = 'Timeout';
+        setTimeout(() => {
+          pasteBtn.innerText = '⇥ Paste Context';
+          pasteBtn.disabled = false;
+        }, 1800);
+      }, 8000);
       chrome.runtime.sendMessage({ action: 'PASTE_LAST_CONTEXT_IN_TAB' }, (resp) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         if (resp && resp.success) {
           pasteBtn.innerText = '✓ Pasted';
           setTimeout(() => {

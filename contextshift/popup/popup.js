@@ -12,6 +12,38 @@ let currentPlatform = null;
 let currentTabId = null;
 let lastMode = 'full';
 
+function detectPlatformFromUrl(url) {
+  const host = (url || '').toLowerCase();
+  if (host.includes('openai.com') || host.includes('chatgpt.com')) return 'chatgpt';
+  if (host.includes('claude.ai')) return 'claude';
+  if (host.includes('gemini.google.com')) return 'gemini';
+  if (host.includes('perplexity.ai')) return 'perplexity';
+  if (host.includes('grok.com') || host.includes('x.com/i/grok')) return 'grok';
+  return null;
+}
+
+function sendTabMessageWithTimeout(tabId, payload, timeoutMs = 7000) {
+  return new Promise(resolve => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({ success: false, error: 'Request timed out while reading this page.' });
+    }, timeoutMs);
+
+    chrome.tabs.sendMessage(tabId, payload, resp => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: 'Could not reach page script. Refresh the tab and try again.' });
+        return;
+      }
+      resolve(resp || { success: false, error: 'No response from page script.' });
+    });
+  });
+}
+
 function qs(id) { return document.getElementById(id); }
 function showStatus(msg, type = '') {
   const bar = qs('cs-status-bar');
@@ -78,15 +110,16 @@ function extractiveSummarize(messages) {
 chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
   const tab = tabs[0];
   currentTabId = tab.id;
-  chrome.tabs.sendMessage(tab.id, { action: 'GET_CONVERSATION' }, resp => {
+  const urlPlatform = detectPlatformFromUrl(tab.url);
+  sendTabMessageWithTimeout(tab.id, { action: 'GET_CONVERSATION' }, 5000).then(resp => {
     if (resp && resp.success) {
       currentPlatform = resp.platform;
       renderPlatformBadge(currentPlatform);
       qs('cs-capture-btn').disabled = false;
     } else {
-      currentPlatform = null;
-      renderPlatformBadge(null);
-      qs('cs-capture-btn').disabled = true;
+      currentPlatform = urlPlatform;
+      renderPlatformBadge(currentPlatform);
+      qs('cs-capture-btn').disabled = !currentPlatform;
     }
   });
   chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
@@ -118,7 +151,7 @@ qs('cs-capture-btn').onclick = () => {
   if (!currentPlatform) return;
   showStatus('Capturing conversation...');
   setLoading(true);
-  chrome.tabs.sendMessage(currentTabId, { action: 'GET_CONVERSATION' }, resp => {
+  sendTabMessageWithTimeout(currentTabId, { action: 'GET_CONVERSATION' }).then(resp => {
     setLoading(false);
     if (resp && resp.success) {
       captured = resp;
