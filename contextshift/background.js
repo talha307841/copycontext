@@ -264,6 +264,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'INJECT_TEXT_TO_SENDER') {
+    // Called from floatingButton (content script) — injects text into the same tab
+    const tabId = sender?.tab?.id;
+    if (!tabId || !message.text) { sendResponse({ success: false }); return true; }
+    chrome.tabs.sendMessage(tabId, { action: 'INJECT_TEXT', text: message.text }, (r) => {
+      sendResponse(r?.success ? { success: true } : { success: false });
+    });
+    return true;
+  }
+
   if (message.action === 'INJECT_CONTEXT') {
     const { targetUrl, contextText } = message;
     chrome.tabs.create({ url: targetUrl, active: true }, (tab) => {

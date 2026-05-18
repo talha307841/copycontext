@@ -94,35 +94,99 @@
       pasteBtn.onmouseenter = () => pasteBtn.style.boxShadow = '0 4px 24px 0 rgba(124,92,252,0.35)';
       pasteBtn.onmouseleave = () => pasteBtn.style.boxShadow = '0 2px 16px 0 rgba(124,92,252,0.14)';
       pasteBtn.onclick = () => {
-      pasteBtn.innerText = '⏳ Summarizing...';
       pasteBtn.disabled = true;
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        pasteBtn.innerText = '⚠ Timeout';
-        setTimeout(() => {
-          pasteBtn.innerText = '⇥ Paste Context';
-          pasteBtn.disabled = false;
-        }, 2000);
-      }, 40000); // NIM can take up to ~30s
-      chrome.runtime.sendMessage({ action: 'NIM_SUMMARIZE_AND_PASTE' }, (resp) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (resp && resp.success) {
-          pasteBtn.innerText = resp.usedNim ? '✓ NIM Pasted' : '✓ Pasted';
-          setTimeout(() => {
-            pasteBtn.innerText = '⇥ Paste Context';
-            pasteBtn.disabled = false;
-          }, 1800);
-        } else {
-          pasteBtn.innerText = resp?.error === 'No context captured yet' ? 'No Context' : '⚠️ Error';
-          setTimeout(() => {
-            pasteBtn.innerText = '⇥ Paste Context';
-            pasteBtn.disabled = false;
-          }, 2200);
+
+      chrome.storage.local.get(['cs_nim_stream', 'cs_last_context'], (data) => {
+        const stream = data.cs_nim_stream;
+        const lastCtx = data.cs_last_context;
+
+        // 1. Use cached NIM result if it's recent (< 10 min)
+        if (stream?.status === 'done' && stream.text && (Date.now() - (stream.ts || 0)) < 10 * 60 * 1000) {
+          chrome.runtime.sendMessage({ action: 'INJECT_TEXT_TO_SENDER', text: stream.text }, (resp) => {
+            pasteBtn.innerText = resp?.success ? '✓ NIM Pasted' : '⚠️ Inject failed';
+            setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 1800);
+          });
+          return;
         }
+
+        // 2. No cache — fall back to raw if no messages
+        const messages = lastCtx?.messages;
+        if (!messages?.length) {
+          chrome.runtime.sendMessage({ action: 'PASTE_LAST_CONTEXT_IN_TAB' }, (resp) => {
+            pasteBtn.innerText = resp?.success ? '✓ Pasted (raw)' : 'No Context';
+            setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 1800);
+          });
+          return;
+        }
+
+        // 3. Stream NIM with live word-count on button
+        pasteBtn.innerText = '⏳ Connecting...';
+        let accumulated = '';
+        let streamDone = false;
+
+        const timeout = setTimeout(() => {
+          if (!streamDone) {
+            streamDone = true;
+            try { port.disconnect(); } catch (_) {}
+            pasteBtn.innerText = '⚠ Timeout';
+            setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2000);
+          }
+        }, 45000);
+
+        let port;
+        try {
+          port = chrome.runtime.connect({ name: 'nimStream' });
+        } catch (e) {
+          clearTimeout(timeout);
+          pasteBtn.innerText = '⚠️ Error';
+          setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2000);
+          return;
+        }
+
+        port.postMessage({ messages, mode: 'smart', customFocus: null });
+
+        port.onMessage.addListener((msg) => {
+          if (msg.chunk) {
+            accumulated += msg.chunk;
+            const words = accumulated.trim().split(/\s+/).length;
+            pasteBtn.innerText = `⏳ ${words}w...`;
+          } else if (msg.done) {
+            clearTimeout(timeout);
+            streamDone = true;
+            port.disconnect();
+            if (!accumulated) {
+              pasteBtn.innerText = '⚠️ Empty';
+              setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2000);
+              return;
+            }
+            chrome.runtime.sendMessage({ action: 'INJECT_TEXT_TO_SENDER', text: accumulated }, (resp) => {
+              pasteBtn.innerText = resp?.success ? '✓ NIM Pasted' : '⚠️ Inject failed';
+              setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 1800);
+            });
+          } else if (msg.error) {
+            clearTimeout(timeout);
+            streamDone = true;
+            port.disconnect();
+            const fallback = msg.fallback;
+            if (fallback) {
+              chrome.runtime.sendMessage({ action: 'INJECT_TEXT_TO_SENDER', text: fallback }, (resp) => {
+                pasteBtn.innerText = resp?.success ? '✓ Pasted (local)' : '⚠️ Failed';
+                setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2000);
+              });
+            } else {
+              pasteBtn.innerText = msg.status === 'no_key' ? '⚠ Set NIM key' : '⚠️ Error';
+              setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2200);
+            }
+          }
+        });
+
+        port.onDisconnect.addListener(() => {
+          clearTimeout(timeout);
+          if (!streamDone && !accumulated) {
+            pasteBtn.innerText = '⚠️ Disconnected';
+            setTimeout(() => { pasteBtn.innerText = '⇥ Paste Context'; pasteBtn.disabled = false; }, 2000);
+          }
+        });
       });
       };
 
