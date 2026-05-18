@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=380, initial-scale=1.0">
+  <title>ContextShift</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css?family=DM+Sans:400,700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="cs-popup">
+    <header>
+      <span id="cs-logo">⎌ ContextShift</span>
+      <a id="cs-settings" href="#" title="Settings">⚙️</a>
+    </header>
+    <div id="cs-platform-badge"></div>
+    <section id="cs-capture-section">
+      <button id="cs-capture-btn">Capture Conversation</button>
+    </section>
+    <section id="cs-mode-section" style="display:none;">
+      <div class="cs-mode-cards">
+        <div class="cs-mode-card" data-mode="full">
+          <div class="cs-mode-title">Full Context</div>
+          <div class="cs-mode-desc">Every message, nothing lost</div>
+        </div>
+        <div class="cs-mode-card" data-mode="smart">
+          <div class="cs-mode-title">Smart Summary</div>
+          <div class="cs-mode-desc">AI compresses to what matters</div>
+        </div>
+        <div class="cs-mode-card" data-mode="custom">
+          <div class="cs-mode-title">Custom Focus</div>
+          <div class="cs-mode-desc">Tell me what's important</div>
+          <input id="cs-custom-focus" type="text" placeholder="What should I focus on?" style="display:none;"/>
+        </div>
+      </div>
+      <button id="cs-generate-btn">Generate</button>
+    </section>
+    <section id="cs-preview-section" style="display:none;">
+      <textarea id="cs-preview" readonly></textarea>
+    </section>
+    <section id="cs-transfer-section" style="display:none;">
+      <button id="cs-copy-btn">Copy to Clipboard</button>
+      <div class="cs-inject-row">
+        <select id="cs-inject-platform">
+          <option value="chatgpt">ChatGPT</option>
+          <option value="claude">Claude</option>
+          <option value="gemini">Gemini</option>
+          <option value="perplexity">Perplexity</option>
+          <option value="grok">Grok</option>
+        </select>
+        <button id="cs-inject-btn">Auto-Inject →</button>
+      </div>
+    </section>
+    <section id="cs-history-section">
+      <div id="cs-history-header">Recent Contexts <span id="cs-history-toggle">▼</span></div>
+      <ul id="cs-history-list" style="display:none;"></ul>
+      <div id="cs-history-empty" style="display:none;">No recent transfers. Capture your first conversation above.</div>
+    </section>
+    <footer id="cs-status-bar"></footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

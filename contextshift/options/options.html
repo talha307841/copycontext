@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=380, initial-scale=1.0">
+  <title>ContextShift Settings</title>
+  <link rel="stylesheet" href="options.css">
+  <link href="https://fonts.googleapis.com/css?family=DM+Sans:400,700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="cs-options">
+    <h2>ContextShift Settings</h2>
+    <section>
+      <label for="nim-key">NVIDIA NIM API Key</label>
+      <input type="password" id="nim-key" placeholder="Paste your NIM API key here" autocomplete="off" />
+      <button id="nim-save">Save</button>
+      <button id="nim-test">Test Connection</button>
+      <span id="nim-test-result"></span>
+      <div class="desc">Your NIM key is stored only on this device. Never transmitted to any server.</div>
+    </section>
+    <section>
+      <label>Summarization Default Mode</label>
+      <div>
+        <input type="radio" name="summ-mode" id="mode-full" value="full" checked /> <label for="mode-full">Full</label>
+        <input type="radio" name="summ-mode" id="mode-smart" value="smart" /> <label for="mode-smart">Smart</label>
+        <input type="radio" name="summ-mode" id="mode-custom" value="custom" /> <label for="mode-custom">Custom</label>
+      </div>
+      <label for="max-len">Max context length</label>
+      <input type="range" id="max-len" min="500" max="4000" step="100" value="2000" />
+      <span id="max-len-val">2000</span> tokens
+    </section>
+    <section>
+      <label><input type="checkbox" id="save-history" checked /> Save history locally</label>
+      <button id="clear-history">Clear all saved history</button>
+    </section>
+    <section>
+      <div class="desc">Version 1.0.0 — <a href="https://github.com/yourrepo/contextshift" target="_blank">GitHub</a></div>
+      <div class="desc">No data ever leaves your device.</div>
+    </section>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

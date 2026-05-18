@@ -1,0 +1,66 @@
+#cs-options {
+  width: 380px;
+  background: #0a0a0f;
+  color: #f0f0ff;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  border-radius: 12px;
+  box-shadow: 0 4px 32px 0 #0008;
+  padding: 18px 24px 24px 24px;
+}
+h2 {
+  color: #7c5cfc;
+  font-size: 1.3rem;
+  margin-bottom: 18px;
+}
+section {
+  margin-bottom: 18px;
+}
+label {
+  font-size: 1rem;
+  color: #f0f0ff;
+  margin-right: 8px;
+}
+input[type="password"], input[type="text"] {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #7c5cfc33;
+  background: #1a1a26;
+  color: #f0f0ff;
+  padding: 7px 10px;
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+input[type="range"] {
+  width: 180px;
+  vertical-align: middle;
+}
+#max-len-val {
+  color: #7c5cfc;
+  font-weight: 600;
+  margin-left: 8px;
+}
+button {
+  background: #7c5cfc;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 8px;
+  margin-top: 4px;
+  transition: background 0.15s;
+}
+button:active {
+  background: #9b7dff;
+}
+.desc {
+  color: #8888aa;
+  font-size: 0.97rem;
+  margin-top: 6px;
+}
+#nim-test-result {
+  margin-left: 10px;
+  font-size: 0.97rem;
+}
