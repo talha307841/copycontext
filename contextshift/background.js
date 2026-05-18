@@ -124,10 +124,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SUMMARIZE_WITH_NIM') {
     const { messages, mode, customFocus } = message;
 
-    chrome.storage.local.get(['nim_api_key'], async (stored) => {
+    chrome.storage.local.get(['nim_api_key', 'nim_model'], async (stored) => {
       const runtimeConfig = {
         ...CONTEXTSHIFT_CONFIG,
-        NIM_API_KEY: stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY
+        NIM_API_KEY: stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY,
+        NIM_MODEL: stored.nim_model || CONTEXTSHIFT_CONFIG.NIM_MODEL
       };
 
       const result = await callNIMSummarizer({

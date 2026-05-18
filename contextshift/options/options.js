@@ -4,10 +4,11 @@
 function qs(id) { return document.getElementById(id); }
 
 document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.local.get(['nim_api_key', 'summ_mode', 'max_len', 'save_history'], (data) => {
+  chrome.storage.local.get(['nim_api_key', 'nim_model', 'summ_mode', 'max_len', 'save_history'], (data) => {
     if (data.nim_api_key) {
       qs('nim-api-key').value = data.nim_api_key;
     }
+    qs('nim-model').value = data.nim_model || CONTEXTSHIFT_CONFIG.NIM_MODEL;
 
     if (data.summ_mode) {
       qs('mode-full').checked = data.summ_mode === 'full';
@@ -27,20 +28,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   qs('save-nim-key').addEventListener('click', () => {
     const key = qs('nim-api-key').value.trim();
+    const model = qs('nim-model').value.trim() || CONTEXTSHIFT_CONFIG.NIM_MODEL;
     if (!key || key.length < 10) {
       showNimStatus('Please enter a valid NIM API key', 'error');
       return;
     }
 
-    chrome.storage.local.set({ nim_api_key: key }, () => {
-      showNimStatus('✓ API key saved securely on this device', 'success');
+    chrome.storage.local.set({ nim_api_key: key, nim_model: model }, () => {
+      showNimStatus(`✓ API key and model saved (${model})`, 'success');
     });
   });
 
   qs('test-nim-key').addEventListener('click', async () => {
     showNimStatus('Testing connection to NVIDIA NIM...', 'info');
 
-    chrome.storage.local.get(['nim_api_key'], async (stored) => {
+    chrome.storage.local.get(['nim_api_key', 'nim_model'], async (stored) => {
       const key = stored.nim_api_key
         || (typeof CONTEXTSHIFT_CONFIG !== 'undefined' ? CONTEXTSHIFT_CONFIG.NIM_API_KEY : null);
 
@@ -53,9 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
         ? CONTEXTSHIFT_CONFIG.NIM_ENDPOINT
         : 'https://integrate.api.nvidia.com/v1/chat/completions';
 
-      const model = typeof CONTEXTSHIFT_CONFIG !== 'undefined'
-        ? CONTEXTSHIFT_CONFIG.NIM_MODEL
-        : 'nvidia/llama-3.1-nemotron-70b-instruct';
+      const model = stored.nim_model
+        || (typeof CONTEXTSHIFT_CONFIG !== 'undefined'
+          ? CONTEXTSHIFT_CONFIG.NIM_MODEL
+          : 'nvidia/llama-3.1-nemotron-70b-instruct');
 
       try {
         const res = await fetch(endpoint, {
