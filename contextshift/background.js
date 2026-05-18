@@ -40,6 +40,22 @@ async function saveToHistory(entry) {
 
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'GET_CONVERSATION_FROM_TAB') {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ success: false, error: 'Could not identify active tab.' });
+      return true;
+    }
+    chrome.tabs.sendMessage(tabId, { action: 'GET_CONVERSATION' }, (resp) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ success: false, error: 'Conversation extraction unavailable on this page.' });
+        return;
+      }
+      sendResponse(resp || { success: false, error: 'No response from content script.' });
+    });
+    return true;
+  }
+
   if (message.action === 'SUMMARIZE_WITH_NIM') {
     chrome.storage.local.get(['nim_api_key'], async (data) => {
       const key = data.nim_api_key;

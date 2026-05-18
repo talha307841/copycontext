@@ -37,7 +37,7 @@
     btn.onclick = () => {
       btn.innerText = '⏳...';
       btn.disabled = true;
-      chrome.runtime.sendMessage({ action: 'GET_CONVERSATION' }, (resp) => {
+      chrome.runtime.sendMessage({ action: 'GET_CONVERSATION_FROM_TAB' }, (resp) => {
         if (resp && resp.success) {
           btn.innerText = '✓ Captured!';
           setTimeout(() => {
