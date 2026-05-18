@@ -262,3 +262,83 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
+
+// Streaming port handler — popup connects via chrome.runtime.connect({name:'nimStream'})
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'nimStream') return;
+
+  port.onMessage.addListener(async ({ messages, mode, customFocus }) => {
+    chrome.storage.local.get(['nim_api_key', 'nim_model'], async (stored) => {
+      const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
+
+      if (!key || key.includes('PASTE-YOUR-KEY')) {
+        port.postMessage({ error: true, status: 'no_key', fallback: extractiveSummarize(messages) });
+        return;
+      }
+
+      const model = stored.nim_model || CONTEXTSHIFT_CONFIG.NIM_MODEL;
+      const isCustom = mode === 'custom' && customFocus?.trim().length > 0;
+      const systemPrompt = isCustom ? buildCustomSystemPrompt(customFocus) : NIM_SYSTEM_PROMPT;
+      const maxTokens = isCustom ? CONTEXTSHIFT_CONFIG.MAX_TOKENS_CUSTOM : CONTEXTSHIFT_CONFIG.MAX_TOKENS_SUMMARY;
+      const conversationText = formatConversationForNIM(messages, CONTEXTSHIFT_CONFIG.MAX_INPUT_CHARS);
+
+      try {
+        const response = await fetch(CONTEXTSHIFT_CONFIG.NIM_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model,
+            temperature: CONTEXTSHIFT_CONFIG.TEMPERATURE,
+            top_p: CONTEXTSHIFT_CONFIG.TOP_P,
+            max_tokens: maxTokens,
+            stream: true,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Here is the conversation to analyze:\n\n${conversationText}` }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          port.postMessage({ error: true, status: response.status, fallback: extractiveSummarize(messages) });
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') {
+              port.postMessage({ done: true });
+              return;
+            }
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) port.postMessage({ chunk: delta });
+            } catch (_) {}
+          }
+        }
+
+        port.postMessage({ done: true });
+
+      } catch (e) {
+        port.postMessage({ error: true, status: 'network', fallback: extractiveSummarize(messages) });
+      }
+    });
+  });
+});
