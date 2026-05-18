@@ -1,96 +1,119 @@
 // ContextShift options.js — Settings page logic
-// config.js is loaded before this file via service worker scripts
+// config.js is loaded before this file so CONTEXTSHIFT_CONFIG is available.
 
 function qs(id) { return document.getElementById(id); }
 
-function showStatus(msg, type = '') {
-  const bar = qs('nim-status');
-  bar.textContent = msg;
-  bar.style.display = '';
-  bar.className = 'status-bar ' + type;
-  setTimeout(() => bar.style.display = 'none', 5000);
-}
-
-function loadSettings() {
-  chrome.storage.local.get(['nim_api_key', 'summ_mode', 'max_len', 'save_history'], data => {
+document.addEventListener('DOMContentLoaded', () => {
+  chrome.storage.local.get(['nim_api_key', 'summ_mode', 'max_len', 'save_history'], (data) => {
     if (data.nim_api_key) {
-      const key = data.nim_api_key;
-      qs('nim-api-key').value = key;
-      qs('nim-api-key').placeholder = `Current: ${key.slice(0, 10)}...${key.slice(-4)}`;
+      qs('nim-api-key').value = data.nim_api_key;
     }
+
     if (data.summ_mode) {
       qs('mode-full').checked = data.summ_mode === 'full';
       qs('mode-smart').checked = data.summ_mode === 'smart';
       qs('mode-custom').checked = data.summ_mode === 'custom';
     }
+
     if (data.max_len) {
       qs('max-len').value = data.max_len;
       qs('max-len-val').textContent = data.max_len;
     }
+
     if (typeof data.save_history === 'boolean') {
       qs('save-history').checked = data.save_history;
     }
   });
-}
 
-function debounce(fn, ms) {
-  let t;
-  return function() {
-    clearTimeout(t);
-    t = setTimeout(() => fn.apply(this, arguments), ms);
-  };
-}
-
-// Save NIM key
-document.getElementById('save-nim-key').addEventListener('click', () => {
-  const key = qs('nim-api-key').value.trim();
-  if (!key || key.length < 10) {
-    showStatus('Please enter a valid NIM API key', 'error');
-    return;
-  }
-  chrome.storage.local.set({ nim_api_key: key }, () => {
-    showStatus('✓ API key saved securely', 'success');
-  });
-});
-
-// Test connection
-document.getElementById('test-nim-key').addEventListener('click', () => {
-  showStatus('Testing connection...', 'info');
-  // Use background service worker to bypass CORS
-  chrome.runtime.sendMessage({ action: 'TEST_NIM_CONNECTION' }, (resp) => {
-    if (resp?.success) {
-      showStatus(`✓ Connected — model: ${resp.model}`, 'success');
-    } else if (resp?.status === 401) {
-      showStatus('✗ Invalid API key', 'error');
-    } else if (resp?.status) {
-      showStatus(`✗ Error ${resp.status}: ${resp.error || 'Unknown'}`, 'error');
-    } else {
-      showStatus(resp?.error || '✗ Connection failed', 'error');
+  qs('save-nim-key').addEventListener('click', () => {
+    const key = qs('nim-api-key').value.trim();
+    if (!key || key.length < 10) {
+      showNimStatus('Please enter a valid NIM API key', 'error');
+      return;
     }
+
+    chrome.storage.local.set({ nim_api_key: key }, () => {
+      showNimStatus('✓ API key saved securely on this device', 'success');
+    });
   });
+
+  qs('test-nim-key').addEventListener('click', async () => {
+    showNimStatus('Testing connection to NVIDIA NIM...', 'info');
+
+    chrome.storage.local.get(['nim_api_key'], async (stored) => {
+      const key = stored.nim_api_key
+        || (typeof CONTEXTSHIFT_CONFIG !== 'undefined' ? CONTEXTSHIFT_CONFIG.NIM_API_KEY : null);
+
+      if (!key || key.includes('PASTE-YOUR-KEY') || !key.startsWith('nvapi-')) {
+        showNimStatus('✗ No valid API key found. Enter your key above and save first.', 'error');
+        return;
+      }
+
+      const endpoint = typeof CONTEXTSHIFT_CONFIG !== 'undefined'
+        ? CONTEXTSHIFT_CONFIG.NIM_ENDPOINT
+        : 'https://integrate.api.nvidia.com/v1/chat/completions';
+
+      const model = typeof CONTEXTSHIFT_CONFIG !== 'undefined'
+        ? CONTEXTSHIFT_CONFIG.NIM_MODEL
+        : 'nvidia/llama-3.1-nemotron-70b-instruct';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 5,
+            messages: [{ role: 'user', content: 'Hi' }]
+          })
+        });
+
+        if (res.ok) {
+          showNimStatus(`✓ Connected successfully — model: ${model}`, 'success');
+        } else if (res.status === 401) {
+          showNimStatus('✗ Invalid API key — check it at build.nvidia.com', 'error');
+        } else if (res.status === 429) {
+          showNimStatus('✓ Key valid (rate limited) — NIM is connected', 'success');
+        } else {
+          showNimStatus(`✗ API error ${res.status} — try again`, 'error');
+        }
+      } catch (e) {
+        showNimStatus('✗ Network error — make sure you are online', 'error');
+      }
+    });
+  });
+
+  qs('mode-full').onchange = () => chrome.storage.local.set({ summ_mode: 'full' });
+  qs('mode-smart').onchange = () => chrome.storage.local.set({ summ_mode: 'smart' });
+  qs('mode-custom').onchange = () => chrome.storage.local.set({ summ_mode: 'custom' });
+
+  qs('max-len').oninput = function() {
+    qs('max-len-val').textContent = this.value;
+    chrome.storage.local.set({ max_len: parseInt(this.value, 10) });
+  };
+
+  qs('save-history').onchange = function() {
+    chrome.storage.local.set({ save_history: this.checked });
+  };
+
+  qs('clear-history').onclick = function() {
+    chrome.storage.local.remove(['cs_history'], () => {
+      alert('History cleared.');
+    });
+  };
 });
 
-// Summary mode selection
-qs('mode-full').onchange = () => chrome.storage.local.set({ summ_mode: 'full' });
-qs('mode-smart').onchange = () => chrome.storage.local.set({ summ_mode: 'smart' });
-qs('mode-custom').onchange = () => chrome.storage.local.set({ summ_mode: 'custom' });
+function showNimStatus(message, type) {
+  const el = qs('nim-status');
+  if (!el) return;
+  el.textContent = message;
+  el.style.display = 'block';
+  el.className = `status-bar status-${type}`;
 
-// Max length slider
-qs('max-len').oninput = function() {
-  qs('max-len-val').textContent = this.value;
-  chrome.storage.local.set({ max_len: parseInt(this.value, 10) });
-};
-
-// Save history toggle
-qs('save-history').onchange = function() {
-  chrome.storage.local.set({ save_history: this.checked });
-};
-
-// Clear history
-qs('clear-history').onclick = function() {
-  chrome.storage.local.remove(['cs_history'], () => {
-    alert('History cleared.');
-  });
-};
-
-document.addEventListener('DOMContentLoaded', loadSettings);
+  if (type === 'success') {
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+}

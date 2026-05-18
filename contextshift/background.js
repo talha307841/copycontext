@@ -1,5 +1,6 @@
 // ContextShift background.js — Chrome Extension MV3 Service Worker
-// config.js and summarizer.js are loaded before this file via manifest.json
+importScripts('config.js');
+importScripts('summarizer.js');
 
 // Format full context for handoff
 function formatFullContext(messages, sourcePlatform, targetPlatform) {

@@ -22,8 +22,7 @@
     "https://integrate.api.nvidia.com/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "scripts": ["config.js", "summarizer.js", "background.js"]
+    "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup/popup.html",
@@ -57,5 +56,12 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["config.js", "summarizer.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+  
 }
