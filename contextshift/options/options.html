@@ -29,13 +29,12 @@
         <button id="test-nim-key" class="btn-secondary">Test Connection</button>
       </div>
       <div class="input-row" style="margin-top:8px;">
-        <input
-          type="text"
-          id="nim-model"
-          placeholder="nvidia/llama-3.1-nemotron-70b-instruct"
-          autocomplete="off"
-          spellcheck="false"
-        />
+        <select id="nim-model" style="flex:1;padding:8px;border-radius:6px;background:#1a1a2e;color:#f0f0ff;border:1px solid #444;font-size:0.97rem;">
+          <option value="meta/llama-3.2-3b-instruct">meta/llama-3.2-3b-instruct (3B — fast, recommended)</option>
+          <option value="google/gemma-2-2b-it">google/gemma-2-2b-it (2B — fastest)</option>
+          <option value="nvidia/nemotron-mini-4b-instruct">nvidia/nemotron-mini-4b-instruct (4B)</option>
+          <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (8B — highest quality)</option>
+        </select>
       </div>
       <p class="privacy-note">
         🔒 Your key is stored only in Chrome's local storage on this device.

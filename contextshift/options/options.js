@@ -6,7 +6,9 @@ function qs(id) { return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', () => {
   // Only these models are confirmed working — anything else gets replaced
   const WORKING_MODELS = [
+    'meta/llama-3.2-3b-instruct',
     'meta/llama-3.1-8b-instruct',
+    'google/gemma-2-2b-it',
     'nvidia/nemotron-mini-4b-instruct'
   ];
 
@@ -22,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
       : CONTEXTSHIFT_CONFIG.NIM_MODEL;
 
     qs('nim-model').value = effectiveModel;
+    // Ensure dropdown shows selection (fallback to first option if value missing)
+    if (!qs('nim-model').value) qs('nim-model').selectedIndex = 0;
 
     // Persist correction immediately so test/save both use the good model
     if (!WORKING_MODELS.includes(storedModel)) {
