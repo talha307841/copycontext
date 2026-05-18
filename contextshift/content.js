@@ -22,7 +22,7 @@ const SELECTORS = {
   },
   claude: {
     messageContainer: '[data-testid="human-turn"], [data-testid="ai-turn"], .human-turn, .assistant-turn',
-    getRoleAttr: (el) => (el.dataset.testid?.includes('human') || el.className?.includes('human')) ? 'user' : 'assistant',
+    getRoleAttr: (el) => (el.dataset.testid?.includes('human') || String(el.className).includes('human')) ? 'user' : 'assistant',
     getContent: (el) => el.querySelector('.prose p, .whitespace-pre-wrap, [class*="message"]')?.innerText?.trim() || el.innerText?.trim(),
     inputBox: '[contenteditable="true"].ProseMirror, div[contenteditable="true"][placeholder]',
     inputType: 'contenteditable',
@@ -36,14 +36,14 @@ const SELECTORS = {
   },
   perplexity: {
     messageContainer: '[data-testid="user-message"], [data-testid="answer"], .message, [class*="userMessage"], [class*="assistantMessage"]',
-    getRoleAttr: (el) => (el.dataset.testid === 'user-message' || el.className?.includes('user')) ? 'user' : 'assistant',
+    getRoleAttr: (el) => (el.dataset.testid === 'user-message' || String(el.className).includes('user')) ? 'user' : 'assistant',
     getContent: (el) => el.innerText?.trim(),
     inputBox: 'textarea[placeholder*="Ask"], textarea[placeholder*="Follow"], textarea',
     inputType: 'textarea',
   },
   grok: {
     messageContainer: '[class*="UserMessage"], [class*="AssistantMessage"], [class*="message-bubble"]',
-    getRoleAttr: (el) => (el.className?.includes('User') || el.className?.includes('human')) ? 'user' : 'assistant',
+    getRoleAttr: (el) => (String(el.className).includes('User') || String(el.className).includes('human')) ? 'user' : 'assistant',
     getContent: (el) => el.querySelector('[class*="text"], p, div')?.innerText?.trim() || el.innerText?.trim(),
     inputBox: 'textarea[placeholder*="Ask"], textarea[aria-label], textarea',
     inputType: 'textarea',

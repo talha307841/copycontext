@@ -38,8 +38,85 @@ async function saveToHistory(entry) {
   });
 }
 
+async function getStorage(keys) {
+  return new Promise(resolve => chrome.storage.local.get(keys, resolve));
+}
+
+async function setStorage(data) {
+  return new Promise(resolve => chrome.storage.local.set(data, resolve));
+}
+
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'CAPTURE_AND_STORE_FROM_TAB') {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ success: false, error: 'Could not identify active tab.' });
+      return true;
+    }
+    chrome.tabs.sendMessage(tabId, { action: 'GET_CONVERSATION' }, async (resp) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ success: false, error: 'Conversation extraction unavailable on this page.' });
+        return;
+      }
+      if (!resp?.success || !resp?.messages?.length) {
+        sendResponse(resp || { success: false, error: 'No conversation found on page.' });
+        return;
+      }
+
+      const sourcePlatform = resp.platform || 'unknown';
+      const fullContext = formatFullContext(resp.messages, sourcePlatform, sourcePlatform);
+      const latest = {
+        id: Date.now(),
+        timestamp: Date.now(),
+        sourcePlatform,
+        messageCount: resp.messages.length,
+        preview: fullContext.slice(0, 100),
+        fullContext,
+        summary: ''
+      };
+
+      const settings = await getStorage(['save_history']);
+      await setStorage({ cs_last_context: latest });
+      if (settings.save_history !== false) {
+        await saveToHistory(latest);
+      }
+
+      sendResponse({
+        success: true,
+        platform: sourcePlatform,
+        messageCount: resp.messages.length,
+        preview: latest.preview
+      });
+    });
+    return true;
+  }
+
+  if (message.action === 'PASTE_LAST_CONTEXT_IN_TAB') {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ success: false, error: 'Could not identify active tab.' });
+      return true;
+    }
+
+    chrome.storage.local.get(['cs_last_context'], (data) => {
+      const contextText = data.cs_last_context?.fullContext;
+      if (!contextText) {
+        sendResponse({ success: false, error: 'No captured context found yet.' });
+        return;
+      }
+
+      chrome.tabs.sendMessage(tabId, { action: 'INJECT_TEXT', text: contextText }, (resp) => {
+        if (chrome.runtime.lastError || !resp?.success) {
+          sendResponse({ success: false, error: 'Could not paste context into this page input.' });
+          return;
+        }
+        sendResponse({ success: true, chars: contextText.length });
+      });
+    });
+    return true;
+  }
+
   if (message.action === 'GET_CONVERSATION_FROM_TAB') {
     const tabId = sender?.tab?.id;
     if (!tabId) {

@@ -14,19 +14,26 @@
   }
 
   function createButton() {
+    const wrap = document.createElement('div');
+    wrap.id = 'contextshift-floating-wrap';
+    wrap.style.position = 'fixed';
+    wrap.style.bottom = '28px';
+    wrap.style.right = '28px';
+    wrap.style.zIndex = 99999;
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.gap = '10px';
+
     const btn = document.createElement('button');
     btn.id = 'contextshift-floating-btn';
     btn.innerText = '⎌ Capture';
-    btn.style.position = 'fixed';
-    btn.style.bottom = '28px';
-    btn.style.right = '28px';
-    btn.style.zIndex = 99999;
+    btn.style.zIndex = 1;
     btn.style.background = '#7c5cfc';
     btn.style.color = '#fff';
     btn.style.border = 'none';
     btn.style.borderRadius = '24px';
     btn.style.padding = '12px 24px';
-    btn.style.fontSize = '18px';
+    btn.style.fontSize = '16px';
     btn.style.boxShadow = '0 2px 16px 0 rgba(124,92,252,0.18)';
     btn.style.cursor = 'pointer';
     btn.style.transition = 'box-shadow 0.15s';
@@ -37,9 +44,9 @@
     btn.onclick = () => {
       btn.innerText = '⏳...';
       btn.disabled = true;
-      chrome.runtime.sendMessage({ action: 'GET_CONVERSATION_FROM_TAB' }, (resp) => {
+      chrome.runtime.sendMessage({ action: 'CAPTURE_AND_STORE_FROM_TAB' }, (resp) => {
         if (resp && resp.success) {
-          btn.innerText = '✓ Captured!';
+          btn.innerText = `✓ ${resp.messageCount} Saved`;
           setTimeout(() => {
             btn.innerText = '⎌ Capture';
             btn.disabled = false;
@@ -53,11 +60,51 @@
         }
       });
     };
-    document.body.appendChild(btn);
+
+    const pasteBtn = document.createElement('button');
+    pasteBtn.id = 'contextshift-floating-paste-btn';
+    pasteBtn.innerText = '⇥ Paste Context';
+    pasteBtn.style.zIndex = 1;
+    pasteBtn.style.background = '#1a1a26';
+    pasteBtn.style.color = '#f0f0ff';
+    pasteBtn.style.border = '1px solid rgba(124,92,252,0.45)';
+    pasteBtn.style.borderRadius = '24px';
+    pasteBtn.style.padding = '10px 18px';
+    pasteBtn.style.fontSize = '14px';
+    pasteBtn.style.boxShadow = '0 2px 16px 0 rgba(124,92,252,0.14)';
+    pasteBtn.style.cursor = 'pointer';
+    pasteBtn.style.transition = 'box-shadow 0.15s';
+    pasteBtn.style.fontFamily = 'DM Sans, system-ui, sans-serif';
+    pasteBtn.style.opacity = '0.96';
+    pasteBtn.onmouseenter = () => pasteBtn.style.boxShadow = '0 4px 24px 0 rgba(124,92,252,0.35)';
+    pasteBtn.onmouseleave = () => pasteBtn.style.boxShadow = '0 2px 16px 0 rgba(124,92,252,0.14)';
+    pasteBtn.onclick = () => {
+      pasteBtn.innerText = 'Pasting...';
+      pasteBtn.disabled = true;
+      chrome.runtime.sendMessage({ action: 'PASTE_LAST_CONTEXT_IN_TAB' }, (resp) => {
+        if (resp && resp.success) {
+          pasteBtn.innerText = '✓ Pasted';
+          setTimeout(() => {
+            pasteBtn.innerText = '⇥ Paste Context';
+            pasteBtn.disabled = false;
+          }, 1600);
+        } else {
+          pasteBtn.innerText = 'No Context';
+          setTimeout(() => {
+            pasteBtn.innerText = '⇥ Paste Context';
+            pasteBtn.disabled = false;
+          }, 2000);
+        }
+      });
+    };
+
+    wrap.appendChild(btn);
+    wrap.appendChild(pasteBtn);
+    document.body.appendChild(wrap);
   }
 
   function injectIfNeeded() {
-    if (!document.getElementById('contextshift-floating-btn') && detectPlatform()) {
+    if (!document.getElementById('contextshift-floating-wrap') && detectPlatform()) {
       createButton();
     }
   }
