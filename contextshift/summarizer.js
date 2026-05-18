@@ -1,62 +1,25 @@
 const NIM_SYSTEM_PROMPT = `
-You are ContextShift, an expert AI conversation analyst and handoff specialist.
+You are ContextShift, an AI conversation compressor specialized in handoff paragraphs.
 
-Your job: analyze a conversation between a user and an AI assistant, then produce a STRUCTURED HANDOFF BRIEF that lets a brand-new AI instantly understand everything it needs — with zero re-reading required.
+Write a single dense paragraph (100–180 words) that gives a brand-new AI assistant everything it needs to continue this conversation seamlessly — with zero re-reading of the original.
 
-You MUST follow this exact output format. Do not deviate:
+Structure the paragraph in this exact order:
+1. Domain + topic + how technical it is (1 sentence)
+2. What the user is trying to accomplish, and everything that was established, built, or decided — include ALL specific details verbatim: exact file names, API endpoints, error messages, model names, function names, variable names, values, and decisions (2–4 sentences)
+3. Any blockers, constraints, or open questions that came up (1 sentence, skip if none)
+4. Where the conversation ended and the user's exact next request (1 sentence)
 
----
-
-## 🧠 EXTRACT
-**Topic(s):** [comma-separated list of the core subjects discussed. Be specific. e.g. "Chrome Extension Manifest V3, NVIDIA NIM CORS issue, icon PNG export"]
-**Domain:** [single word category: e.g. "Engineering" / "Design" / "Research" / "Writing" / "Business" / "Math" / "Legal"]
-**Depth:** [Beginner / Intermediate / Expert — how technical was the conversation?]
-**User goal:** [One sentence — what is the user ultimately trying to accomplish?]
-
----
-
-## 🔀 CONVERSATION DIVERGENCE
-[Describe in 2–4 bullet points how the conversation EVOLVED or SHIFTED. Note any pivots, new directions, corrections, or topic jumps. If it was linear, say so.]
-- [First focus]
-- [Where it shifted]
-- [Any corrections or dead ends]
-- [Where it ended up]
-
----
-
-## 💬 COMPRESSED CONVERSATION
-[Compress the full conversation into a tight, information-dense summary. Rules:
-- Keep ALL specific details: numbers, names, file names, code snippets, API endpoints, decisions made
-- Remove: greetings, filler, repetition, meta-commentary
-- Format as flowing paragraph or short labeled sections if multiple topics
-- Max 200 words
-- Write in third person: "The user asked about X. The assistant explained Y. It was decided that Z."
-- If there is code, include the key snippet (max 20 lines) in a code block]
-
----
-
-## ⚡ CRITICAL FACTS
-[Bullet list of ONLY the most important specific facts, decisions, or constraints the next AI MUST know. If there are 8 facts, list all 8.]
-- 
-- 
-- 
-
----
-
-## 🎯 NEXT STEP
-**Immediate ask:** [The exact thing the user needs next — copy their last question/request if possible.]
-**Context for next AI:** [One sentence of advice for the receiving AI on how to continue.]
-
----
-
-RULES:
-- Never add preamble like "Here is your summary" — start directly with ## 🧠 EXTRACT
-- Never truncate the CRITICAL FACTS section
-- Output must be clean markdown — no extra explanation after the last section
+Rules:
+- Prose only — no bullet points, no headers, no markdown
+- Third-person voice: "The user is building... The assistant explained... It was decided that..."
+- Never paraphrase specific technical identifiers — reproduce them exactly
+- If code was central, name the key function, file, or snippet inline in backticks
+- 100–180 words — dense but complete
+- Begin directly with the paragraph — no preamble like "Here is a summary"
 `.trim();
 
 function buildCustomSystemPrompt(customFocus) {
-  return NIM_SYSTEM_PROMPT + `\n\nSPECIAL INSTRUCTION: The user has asked you to focus specifically on: "${customFocus}"\nEmphasize this topic in your COMPRESSED CONVERSATION and CRITICAL FACTS sections.\nIf the conversation did not cover this topic, say so clearly in the EXTRACT section.`.trim();
+  return NIM_SYSTEM_PROMPT + `\n\nSPECIAL INSTRUCTION: The user wants the paragraph to focus specifically on: "${customFocus}". Emphasize details related to this topic. If the conversation did not cover it, note that briefly at the end of the paragraph.`.trim();
 }
 
 function formatConversationForNIM(messages, maxChars = 12000) {
@@ -128,36 +91,10 @@ function extractiveSummarize(messages) {
   const longestAssistant = assistantMessages.sort((a, b) => b.content.length - a.content.length)[0]?.content?.trim() || "";
   const hadShift = userMessages.length > 3 && lastUser.slice(0, 50).toLowerCase() !== firstUser.slice(0, 50).toLowerCase();
 
-  return `## 🧠 EXTRACT
-**Topic(s):** ${firstUser.split(" ").slice(0, 10).join(" ")}...
-**Domain:** Auto-detected (NIM key not configured)
-**Depth:** Unknown
-**User goal:** ${firstUser.slice(0, 120)}
-
----
-
-## 🔀 CONVERSATION DIVERGENCE
-- Started with: ${firstUser.slice(0, 80)}
-${hadShift ? `• Shifted to: ${lastUser.slice(0, 80)}` : "• Conversation stayed on topic throughout"}
-- ${messages.length} total messages exchanged
-
----
-
-## 💬 COMPRESSED CONVERSATION
-${longestAssistant.slice(0, 400)}${longestAssistant.length > 400 ? "..." : ""}
-
----
-
-## ⚡ CRITICAL FACTS
-- ${firstUser.slice(0, 120)}
-- ${lastUser.slice(0, 120)}
-- (Add your NIM API key in Settings for intelligent extraction)
-
----
-
-## 🎯 NEXT STEP
-**Immediate ask:** ${lastUser.slice(0, 200)}
-**Context for next AI:** Auto-extracted summary — add NVIDIA NIM key in ContextShift Settings for full AI analysis.
+  const topicHint = firstUser.split(" ").slice(0, 12).join(" ");
+  const shiftNote = hadShift ? ` The conversation evolved, ending with: "${lastUser.slice(0, 100)}${lastUser.length > 100 ? '...' : ''}".` : "";
+  const keyResponse = longestAssistant.slice(0, 300) + (longestAssistant.length > 300 ? "..." : "");
+  return `This conversation covers the topic: "${topicHint}..." across ${messages.length} messages. The user's goal was: ${firstUser.slice(0, 150)}${firstUser.length > 150 ? "..." : ""}. The assistant's key response: ${keyResponse}${shiftNote} The user's last request was: "${lastUser.slice(0, 200)}${lastUser.length > 200 ? "..." : ""}". (Note: this is a local fallback summary — add your NVIDIA NIM API key in ContextShift Settings for full AI-compressed handoffs.)`;
 
 ---
 ⚠️ *Auto-summarized locally — no NIM key configured.*`;
