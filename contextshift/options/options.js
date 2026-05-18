@@ -4,11 +4,28 @@
 function qs(id) { return document.getElementById(id); }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Known broken/retired models that should be replaced with the current default
+  const BROKEN_MODELS = [
+    'nvidia/llama-3.1-nemotron-70b-instruct'
+  ];
+
   chrome.storage.local.get(['nim_api_key', 'nim_model', 'summ_mode', 'max_len', 'save_history'], (data) => {
     if (data.nim_api_key) {
       qs('nim-api-key').value = data.nim_api_key;
     }
-    qs('nim-model').value = data.nim_model || CONTEXTSHIFT_CONFIG.NIM_MODEL;
+
+    // Auto-migrate away from known broken models
+    const storedModel = data.nim_model || '';
+    const effectiveModel = (!storedModel || BROKEN_MODELS.includes(storedModel))
+      ? CONTEXTSHIFT_CONFIG.NIM_MODEL
+      : storedModel;
+
+    qs('nim-model').value = effectiveModel;
+
+    // Persist migration immediately so test/save both use the good model
+    if (BROKEN_MODELS.includes(storedModel)) {
+      chrome.storage.local.set({ nim_model: effectiveModel });
+    }
 
     if (data.summ_mode) {
       qs('mode-full').checked = data.summ_mode === 'full';
