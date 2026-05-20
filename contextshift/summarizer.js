@@ -10,7 +10,7 @@ goal: [what the user is trying to accomplish — max 15 words]
 state: [what has been confirmed, created, or established so far — max 15 words]
 decisions: [key choices made, comma-separated fragments — max 25 words]
 error: [exact error message verbatim if any — else "none"]
-next: [the user's last unanswered request — copy as close to verbatim as possible, max 30 words]
+next: [the user's last unanswered request — copy as close to verbatim as possible, max 50 words]
 skip: [things already tried and failed, or questions already answered — max 15 words]
 
 RULES:
@@ -102,6 +102,33 @@ function extractCriticalArtifacts(messages, domain) {
   const urls = [...new Set(allText.match(/https?:\/\/[^\s"')<>\]]{10,150}/g) || [])];
   if (urls.length > 0) {
     sections.push({ heading: 'Links', content: urls.slice(0, 12).join('\n') });
+  }
+
+  // 5. Database: schema CSV blocks (format from DB tools: N,colname,db,table,SQLTYPE,...)
+  //    and ID/value mapping data — never in code blocks, always plain text
+  if (domain === 'database') {
+    const schemaCsvRegex = /(?:\d+,[a-zA-Z_][a-zA-Z0-9_]*,[^,\n]+,[a-zA-Z_][a-zA-Z0-9_]*,(?:BIGINT|INT|VARCHAR|ENUM|TINYINT|DOUBLE|TIMESTAMP|DATETIME|DATE|TEXT|BLOB)[^\n]*\n){4,}/g;
+    const schemaBlocks = [];
+    const seenSch = new Set();
+    while ((match = schemaCsvRegex.exec(allText)) !== null) {
+      const b = match[0].trim();
+      if (!seenSch.has(b)) { seenSch.add(b); schemaBlocks.push(b); }
+    }
+    if (schemaBlocks.length > 0) {
+      sections.push({ heading: 'Table Schemas', content: schemaBlocks.join('\n\n') });
+    }
+
+    // ID/value mapping rows: lines like '19932', '20562', 'dummy_repair_customer_1'
+    const idRowRegex = /(?:'[^'\n]+'(?:,\s*(?:'[^'\n]+'|NULL|\d+)){2,}[^\n]*\n?){3,}/g;
+    const idBlocks = [];
+    while ((match = idRowRegex.exec(allText)) !== null) {
+      const b = match[0].trim();
+      if (b.length > 30) idBlocks.push(b);
+    }
+    if (idBlocks.length > 0) {
+      // Keep only the last (most recent state)
+      sections.push({ heading: 'Key ID Mappings', content: idBlocks.slice(-1)[0] });
+    }
   }
 
   return sections;
@@ -197,7 +224,7 @@ function extractiveSummarize(messages) {
   const asstMsgs = messages.filter(m => m.role === "assistant");
 
   const firstUser = userMsgs[0]?.content?.trim().slice(0, 80) || "none";
-  const lastUser  = userMsgs[userMsgs.length - 1]?.content?.trim().slice(0, 150) || "none";
+  const lastUser  = userMsgs[userMsgs.length - 1]?.content?.trim().slice(0, 500) || "none";
   const firstAI   = asstMsgs[0]?.content?.trim().slice(0, 80) || "none";
 
   const allText = messages.map(m => m.content).join(" ");
@@ -215,7 +242,7 @@ goal: ${firstUser.slice(0, 80)}
 state: ${firstAI.slice(0, 80)}
 decisions: none (NIM key not configured — add in Settings)
 error: ${errors[0] || "none"}
-next: ${lastUser.slice(0, 150)}
+next: ${lastUser}
 skip: none
 ⚠️ Auto-extracted locally. Add NVIDIA NIM key in Settings for AI compression.` + artifactAppend;
 }
