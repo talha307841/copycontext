@@ -58,10 +58,21 @@ function renderPlatformBadge(platform) {
   const badge = qs('cs-platform-badge');
   if (!platform) {
     badge.textContent = 'Not on a supported AI platform';
-    badge.style.color = '#f87171';
+    badge.className = 'cs-platform-badge not-detected';
   } else {
-    badge.textContent = `You're on ${platform.charAt(0).toUpperCase() + platform.slice(1)} ✓`;
-    badge.style.color = '#34d399';
+    badge.textContent = `\u2022 ${platform.charAt(0).toUpperCase() + platform.slice(1)} detected`;
+    badge.className = 'cs-platform-badge detected';
+  }
+}
+function renderApiBadge(connected) {
+  const badge = qs('cs-api-badge');
+  if (!badge) return;
+  if (connected) {
+    badge.textContent = '\u25cf Connected';
+    badge.className = 'cs-badge cs-badge--online';
+  } else {
+    badge.textContent = '\u25cf Offline';
+    badge.className = 'cs-badge cs-badge--offline';
   }
 }
 function renderHistory(history) {
@@ -125,6 +136,12 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     if (res && res.success) renderHistory(res.history);
   });
 
+  // Render API connection badge
+  chrome.storage.local.get(['nim_api_key'], (data) => {
+    const hasKey = data.nim_api_key && !data.nim_api_key.includes('PASTE');
+    renderApiBadge(hasKey);
+  });
+
   // Update Generate button label to match the saved mode
   chrome.storage.local.get(['summ_mode'], (settings) => {
     const mode = settings.summ_mode || 'smart';
@@ -165,13 +182,16 @@ qs('cs-settings').onclick = (e) => {
 // History toggle
 qs('cs-history-header').onclick = () => {
   const list = qs('cs-history-list');
-  const toggle = qs('cs-history-toggle');
+  const chevron = qs('cs-history-chevron');
+  const btn = qs('cs-history-header');
   if (list.style.display === 'none') {
     list.style.display = '';
-    toggle.textContent = '▲';
+    chevron.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
   } else {
     list.style.display = 'none';
-    toggle.textContent = '▼';
+    chevron.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
   }
 };
 
@@ -304,8 +324,10 @@ qs('cs-generate-btn').onclick = () => {
 qs('cs-copy-btn').onclick = () => {
   const text = qs('cs-preview').value;
   navigator.clipboard.writeText(text).then(() => {
-    qs('cs-copy-btn').textContent = '✓ Copied!';
-    setTimeout(() => qs('cs-copy-btn').textContent = 'Copy to Clipboard', 1800);
+    qs('cs-copy-btn').innerHTML = '\u2713 Copied!';
+    setTimeout(() => {
+      qs('cs-copy-btn').innerHTML = `<svg class="cs-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 1800);
     showStatus('Copied to clipboard.', 'success');
   });
 };

@@ -1,6 +1,255 @@
-# ContextShift
+<p align="center">
+  <img src="github_cover.png" alt="ContextShift — Streamline Your LLM Context" width="100%">
+</p>
 
-ContextShift is a privacy-first Chrome Extension that captures AI chat context from one platform and helps transfer it to another without a backend server.
+<p align="center">
+  <img src="logo.png" alt="ContextShift Logo" width="148">
+</p>
+
+<h1 align="center">ContextShift</h1>
+
+<p align="center">
+  <strong>Seamless, compressed AI context handoffs across LLM chat interfaces.</strong><br>
+  Powered by NVIDIA NIM &amp; engineered for developers who live in multiple AI tabs at once.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Chrome_Extension-MV3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome MV3">
+  <img src="https://img.shields.io/badge/Powered_by-NVIDIA_NIM-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA NIM">
+  <img src="https://img.shields.io/badge/Privacy-100%25_Local-10B981?style=for-the-badge&logoColor=white" alt="Local-first">
+  <img src="https://img.shields.io/badge/No_Backend-Zero_Telemetry-7C3AED?style=for-the-badge" alt="No backend">
+  <img src="https://img.shields.io/badge/JavaScript-Vanilla_ES2022-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
+</p>
+
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> &nbsp;·&nbsp;
+  <a href="#-features">Features</a> &nbsp;·&nbsp;
+  <a href="#%EF%B8%8F-architecture">Architecture</a> &nbsp;·&nbsp;
+  <a href="#-privacy">Privacy</a> &nbsp;·&nbsp;
+  <a href="#-troubleshooting">Troubleshooting</a>
+</p>
+
+---
+
+## What is ContextShift?
+
+ContextShift is a **privacy-first Chrome Extension** that captures your AI conversation from one platform and instantly transfers a compressed, formatted version of it to another — no copy-pasting, no re-explaining, no backend server.
+
+Switch from ChatGPT to Claude mid-conversation. Carry your full context over in one click.
+
+---
+
+## ✦ Features
+
+| | Feature | Description |
+|---|---|---|
+| 🔮 | **Effortless Capture** | One-click extraction from any supported AI platform via the floating overlay |
+| ⚡ | **Instant Auto-Injection** | Pastes formatted context directly into a target AI's chat input — opens the tab for you |
+| 🧠 | **NVIDIA NIM Compression** | Streaming smart summarization via Llama 3.2 through the NVIDIA NIM API |
+| 📋 | **Copy to Clipboard** | Copies processed context as formatted Markdown ready to paste anywhere |
+| 🕵️ | **Shadow DOM Overlay** | Floating panel injected with full Shadow DOM isolation — host-page CSS can never break it |
+| 📚 | **Local Capture History** | Last 10 captures compressed and saved locally, reloadable from the popup |
+| 🔒 | **Local-First Privacy** | API key and all conversation data stored only in Chrome's local extension storage |
+| ⚙️ | **Settings Page** | Configure NIM key, summarization mode, max context length, and history preferences |
+
+---
+
+## 🌐 Supported Platforms
+
+<table>
+  <tr>
+    <td align="center">🤖<br><b>ChatGPT</b><br><code>chatgpt.com</code></td>
+    <td align="center">🧡<br><b>Claude</b><br><code>claude.ai</code></td>
+    <td align="center">♊<br><b>Gemini</b><br><code>gemini.google.com</code></td>
+    <td align="center">🔍<br><b>Perplexity</b><br><code>perplexity.ai</code></td>
+    <td align="center">𝕏<br><b>Grok</b><br><code>grok.com</code></td>
+  </tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+### 1 — Install the Extension
+
+```bash
+git clone https://github.com/talha307841/copycontext.git
+```
+
+1. Open Chrome and navigate to `chrome://extensions`
+2. Enable **Developer Mode** (toggle in the top-right corner)
+3. Click **Load unpacked** → select the `contextshift/` folder
+4. The extension icon appears in your Chrome toolbar
+
+### 2 — (Optional) Configure NVIDIA NIM
+
+> Skip this step to use the built-in local extractive summarizer instead.
+
+1. Get a **free** API key at [build.nvidia.com](https://build.nvidia.com)
+2. Click the ContextShift extension icon → press **⚙ Settings**
+3. Paste your key and click **Save & Test Connection**
+
+### 3 — Start Shifting Context
+
+| What you want | How to do it |
+|---|---|
+| **Capture** current conversation | Open a supported AI chat → click **▶ Capture Conversation** on the floating panel |
+| **Copy** context to clipboard | Click **📋 Copy** on the overlay or in the popup |
+| **Inject** into another AI | Pick a target in the popup → click **Auto-Inject →** |
+| **Summarize** with NIM | Click **Generate Smart Summary** in the popup after capturing |
+
+---
+
+## 🏗️ Architecture
+
+```
+contextshift/
+├── manifest.json          # MV3 extension manifest — permissions & content scripts
+├── background.js          # Service worker: NIM API calls, message routing, LZString storage
+├── content.js             # Content script: conversation extraction + Shadow DOM overlay
+├── summarizer.js          # NVIDIA NIM streaming client + local extractive fallback
+├── storage.js             # LZ-String compress/decompress helpers
+├── config.js              # Runtime config: NIM endpoint, model ID, token limits
+├── lz-string.min.js       # Context compression (reduces storage footprint ~70%)
+├── popup/
+│   ├── popup.html         # Extension popup — Inter UI + Fira Code preview card
+│   ├── popup.css          # Vercel-inspired developer dark theme
+│   └── popup.js           # Popup logic: capture → generate → transfer flow
+├── options/
+│   ├── options.html       # Full settings page
+│   ├── options.css
+│   └── options.js         # API key persistence, NIM test ping, preference controls
+└── icons/
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
+```
+
+### Message Flow
+
+```
+Floating Overlay  ──► background.js ──► NVIDIA NIM API  (optional, streaming)
+(content.js)              │
+                          └──► content.js  ──►  target chat input
+                                (INJECT_TEXT)
+```
+
+The overlay's **Capture** button sends `CAPTURE_AND_STORE_FROM_TAB` → background extracts the conversation via `GET_CONVERSATION`, formats it, compresses it with LZString, and stores it in `cs_last_context`.
+
+The **Inject** button sends `NIM_SUMMARIZE_AND_PASTE` → background decompresses, streams a NIM summary (or falls back to local extraction), then dispatches `INJECT_TEXT` back to the content script which drives the platform-specific input element.
+
+### Storage Keys
+
+| Key | Type | Description |
+|---|---|---|
+| `nim_api_key` | `string` | NVIDIA NIM API key (local only) |
+| `summ_mode` | `"full" \| "smart" \| "custom"` | Active summarization mode |
+| `cs_last_context` | LZString blob | Latest captured context object |
+| `cs_history` | LZString array (max 10) | Capture history ring buffer |
+| `cs_nim_stream` | object | In-progress or last NIM stream state |
+| `save_history` | `boolean` | Whether to persist history |
+
+---
+
+## 🔒 Privacy
+
+> **Your data never leaves your device unless you explicitly configure a NIM API key and trigger a summarization.**
+
+| Data | Where it goes |
+|---|---|
+| Captured conversations | Chrome `storage.local` — your device only |
+| NVIDIA NIM API key | Chrome `storage.local` — your device only |
+| Capture history | Chrome `storage.local` — your device only |
+| NIM summarization payload | `integrate.api.nvidia.com` only — opt-in, only when key is set and Generate is clicked |
+
+No backend. No analytics. No telemetry. No accounts required for core functionality.
+
+---
+
+## 🛠 Troubleshooting
+
+<details>
+<summary><b>Overlay appears but capture always fails</b></summary>
+
+- Refresh the AI tab once after loading the extension
+- Scroll the conversation up to ensure all messages are in the DOM
+- Verify you're on a supported domain (see Supported Platforms above)
+- Reload the extension at `chrome://extensions` then refresh the AI tab
+
+</details>
+
+<details>
+<summary><b>Capture reports success but inject / paste is empty</b></summary>
+
+- Re-capture on the current tab — older pre-2.0 captures may be stale
+- Confirm the target tab finished loading before injecting (wait for the input area to appear)
+
+</details>
+
+<details>
+<summary><b>Auto-inject opens the tab but text never appears</b></summary>
+
+- The target platform's input editor may not have finished mounting — the extension retries with a 1.5 s delay
+- If it still fails, use **Copy** as a fallback and paste manually (`Ctrl+V`)
+
+</details>
+
+<details>
+<summary><b>NVIDIA NIM shows "No API key" or "Offline"</b></summary>
+
+- Go to **⚙ Settings** → paste your key → click **Save & Test**
+- Get a free key at [build.nvidia.com](https://build.nvidia.com)
+- Without a key, the extension automatically uses the local extractive summarizer
+
+</details>
+
+<details>
+<summary><b>Extension icon is missing or shows an error</b></summary>
+
+- Verify `contextshift/icons/` contains valid `icon16.png`, `icon48.png`, and `icon128.png` files
+- File names must match `manifest.json` exactly
+
+</details>
+
+---
+
+## 🧪 Development
+
+No bundler or `npm` required. Pure vanilla JavaScript, MV3.
+
+```bash
+# 1. Clone
+git clone https://github.com/talha307841/copycontext.git
+
+# 2. Load in Chrome
+# chrome://extensions → Developer Mode ON → Load unpacked → select contextshift/
+
+# 3. Make changes to any .js / .html / .css file
+# 4. Click the ↺ reload button on the extension card in chrome://extensions
+# 5. Refresh the AI tab
+```
+
+**Recommended test matrix:**
+
+- [ ] Chrome stable on each of the 5 supported platforms
+- [ ] Short chat (< 5 msgs) and long chat (> 30 msgs)
+- [ ] Capture → Copy → manual paste
+- [ ] Capture → Generate Smart Summary (NIM) → Auto-Inject
+- [ ] Popup history: capture twice, reload popup, click history entry
+- [ ] Options: save key → Test Connection → Clear History → reload popup
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) — free to use, fork, and distribute.
+
+---
+
+<p align="center">
+  Built with 💜 for developers who live in multiple AI tabs at once.
+</p>
+
 
 Supported platforms:
 - ChatGPT (`chat.openai.com`, `chatgpt.com`)

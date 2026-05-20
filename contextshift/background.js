@@ -199,6 +199,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Called from content-script overlay "Copy" button.
+  // Decompresses the last captured context and returns its full text so the
+  // content script can write it to the clipboard directly (no round-trip needed
+  // for the actual clipboard write — just for the decompression).
+  if (message.action === 'GET_LAST_CONTEXT_TEXT') {
+    chrome.storage.local.get(['cs_last_context'], (data) => {
+      const ctx = csDecompress(data.cs_last_context);
+      if (!ctx?.fullContext) {
+        sendResponse({ success: false, error: 'No captured context found. Capture a conversation first.' });
+        return;
+      }
+      sendResponse({
+        success: true,
+        text: ctx.fullContext,
+        preview: (ctx.preview || ctx.fullContext).slice(0, 120),
+        messageCount: ctx.messageCount || 0,
+        platform: ctx.sourcePlatform || 'unknown',
+      });
+    });
+    return true;
+  }
+
+
   if (message.action === 'TEST_NIM_CONNECTION') {
     chrome.storage.local.get(['nim_api_key'], async (stored) => {
       const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;

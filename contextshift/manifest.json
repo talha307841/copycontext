@@ -49,7 +49,7 @@
         "https://grok.com/*",
         "https://x.com/i/grok*"
       ],
-      "js": ["content.js", "floatingButton.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
