@@ -186,12 +186,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const OVERLAY_CSS = `
   :host {
     all: initial;
+    display: block;
     position: fixed;
     bottom: 24px;
     right: 24px;
     z-index: 2147483647;
     pointer-events: none;
-    display: block;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -414,16 +414,9 @@ const OVERLAY_CSS = `
   // The .cs-panel inside the shadow root resets pointer-events:auto.
   const host = document.createElement('div');
   host.id = 'contextshift-root';
-  host.style.cssText = [
-    'position:fixed',
-    'bottom:0',
-    'right:0',
-    'width:0',
-    'height:0',
-    'overflow:visible',
-    'pointer-events:none',
-    'z-index:2147483647',
-  ].join(';');
+  // Inline styles must set the final position because :host CSS inside the shadow
+  // has lower cascade priority than the host element's own style attribute.
+  host.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:2147483647;pointer-events:none;display:block';
 
   const shadow = host.attachShadow({ mode: 'open' });
 

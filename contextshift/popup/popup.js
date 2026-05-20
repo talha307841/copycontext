@@ -116,9 +116,14 @@ function extractiveSummarize(messages) {
   return `## Context Handoff (Auto-summarized)\n\n**Original question:** ${firstUser?.content?.slice(0, 300) || 'N/A'}\n\n**Key response:** ${longestAssistant?.content?.slice(0, 500) || 'N/A'}\n\n**Where we left off:** ${lastUser?.content?.slice(0, 300) || 'N/A'}\n\n**Last AI response:** ${lastAssistant?.content?.slice(0, 300) || 'N/A'}\n\n(${messages.length} total messages in original conversation)`;
 }
 
-// On popup open
+// On popup open — fetch history immediately, independently of tab detection
+chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+  if (res && res.success) renderHistory(res.history);
+});
+
 chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-  const tab = tabs[0];
+  const tab = tabs && tabs[0];
+  if (!tab) return;
   currentTabId = tab.id;
   const urlPlatform = detectPlatformFromUrl(tab.url);
   sendTabMessageWithTimeout(tab.id, { action: 'GET_CONVERSATION' }, 5000).then(resp => {
@@ -131,9 +136,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       renderPlatformBadge(currentPlatform);
       qs('cs-capture-btn').disabled = !currentPlatform;
     }
-  });
-  chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
-    if (res && res.success) renderHistory(res.history);
   });
 
   // Render API connection badge
@@ -218,6 +220,10 @@ qs('cs-capture-btn').onclick = () => {
         action: 'STORE_CONTEXT_FROM_POPUP',
         messages: resp.messages,
         platform: resp.platform
+      }, () => {
+        chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+          if (res && res.success) renderHistory(res.history);
+        });
       });
     } else {
       showStatus(resp?.error || 'Could not capture conversation.', 'error');
