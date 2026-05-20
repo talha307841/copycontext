@@ -1,6 +1,8 @@
 // ContextShift background.js — Chrome Extension MV3 Service Worker
 importScripts('config.js');
 importScripts('summarizer.js');
+importScripts('lz-string.min.js');
+importScripts('storage.js');
 
 // Format full context for handoff
 function formatFullContext(messages, sourcePlatform, targetPlatform) {
@@ -14,14 +16,17 @@ function formatFullContext(messages, sourcePlatform, targetPlatform) {
   return `[ContextShift Transfer: ${platformName[sourcePlatform] || sourcePlatform} → ${platformName[targetPlatform] || 'New AI'}]\n\nI was having the following conversation with another AI assistant. Please read the full context below and continue helping me from where we left off.\n\n${conversationText}\n\n---\nPlease confirm you've understood the above conversation context and ask me how you'd like to proceed.`;
 }
 
-// Save to history (FIFO, max 10)
+// Save to history (FIFO, max 10) — entries stored compressed
 async function saveToHistory(entry) {
   return new Promise(resolve => {
     chrome.storage.local.get(['cs_history'], data => {
-      let history = data.cs_history || [];
+      const raw = data.cs_history || [];
+      // Decompress existing entries (handles legacy uncompressed data too)
+      let history = raw.map(item => csDecompress(item)).filter(Boolean);
       history.unshift(entry);
       if (history.length > 10) history = history.slice(0, 10);
-      chrome.storage.local.set({ cs_history: history }, () => resolve());
+      // Compress each entry before storing
+      chrome.storage.local.set({ cs_history: history.map(csCompress) }, () => resolve());
     });
   });
 }
@@ -66,7 +71,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       };
 
       const settings = await getStorage(['save_history']);
-      await setStorage({ cs_last_context: latest });
+      await setStorage({ cs_last_context: csCompress(latest) });
       if (settings.save_history !== false) {
         await saveToHistory(latest);
       }
@@ -89,7 +94,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     chrome.storage.local.get(['cs_last_context'], (data) => {
-      const contextText = data.cs_last_context?.fullContext;
+      const contextText = csDecompress(data.cs_last_context)?.fullContext;
       if (!contextText) {
         sendResponse({ success: false, error: 'No captured context found yet.' });
         return;
@@ -180,7 +185,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'GET_HISTORY') {
     chrome.storage.local.get(['cs_history'], data => {
-      sendResponse({ success: true, history: data.cs_history || [] });
+      const raw = data.cs_history || [];
+      const history = raw.map(item => csDecompress(item)).filter(Boolean);
+      sendResponse({ success: true, history });
     });
     return true;
   }
@@ -236,7 +243,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!tabId) { sendResponse({ success: false, error: 'No tab' }); return true; }
 
     chrome.storage.local.get(['cs_last_context', 'nim_api_key', 'nim_model'], async (stored) => {
-      const lastCtx = stored.cs_last_context;
+      const lastCtx = csDecompress(stored.cs_last_context);
       const messages = lastCtx?.messages;
 
       if (!messages?.length) {

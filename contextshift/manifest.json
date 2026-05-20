@@ -60,7 +60,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["config.js", "summarizer.js"],
+      "resources": ["config.js", "summarizer.js", "lz-string.min.js", "storage.js"],
       "matches": ["<all_urls>"]
     }
   ]
