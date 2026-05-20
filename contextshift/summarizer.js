@@ -85,7 +85,7 @@ function extractCriticalArtifacts(messages, domain) {
   // 3. Bullet/numbered lists with 3+ items (products, trip stops, task lists)
   if (['shopping', 'travel', 'research', 'general'].includes(domain)) {
     const listBlocks = [];
-    const listRegex = /^((?:(?:\d+[.)\]\s+|\*\s+|-\s+)[^\n]+\n?){3,})/gm;
+    const listRegex = /^((?:(?:\d+[.)]\s+|\*\s+|-\s+)[^\n]+\n?){3,})/gm;
     while ((match = listRegex.exec(allText)) !== null) {
       const block = match[1].trim();
       if (block.length > 40) listBlocks.push(block);
@@ -155,7 +155,7 @@ async function callNIMSummarizer({ messages, mode, customFocus, config }) {
     model: NIM_MODEL,
     temperature: 0.1,      // Lower = more deterministic = faster, less wandering
     top_p: 0.75,           // Tighter sampling = faster generation
-    max_tokens: 180,       // YAML output is ~80-120 tokens — 180 is the safe ceiling
+    max_tokens: maxTokens,
     stream: false,
     messages: [
       { role: "system", content: systemPrompt },
