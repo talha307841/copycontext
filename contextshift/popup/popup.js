@@ -116,9 +116,14 @@ function extractiveSummarize(messages) {
   return `## Context Handoff (Auto-summarized)\n\n**Original question:** ${firstUser?.content?.slice(0, 300) || 'N/A'}\n\n**Key response:** ${longestAssistant?.content?.slice(0, 500) || 'N/A'}\n\n**Where we left off:** ${lastUser?.content?.slice(0, 300) || 'N/A'}\n\n**Last AI response:** ${lastAssistant?.content?.slice(0, 300) || 'N/A'}\n\n(${messages.length} total messages in original conversation)`;
 }
 
-// On popup open
+// On popup open — fetch history immediately, independently of tab detection
+chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+  if (res && res.success) renderHistory(res.history);
+});
+
 chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-  const tab = tabs[0];
+  const tab = tabs && tabs[0];
+  if (!tab) return;
   currentTabId = tab.id;
   const urlPlatform = detectPlatformFromUrl(tab.url);
   sendTabMessageWithTimeout(tab.id, { action: 'GET_CONVERSATION' }, 5000).then(resp => {
@@ -131,9 +136,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       renderPlatformBadge(currentPlatform);
       qs('cs-capture-btn').disabled = !currentPlatform;
     }
-  });
-  chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
-    if (res && res.success) renderHistory(res.history);
   });
 
   // Render API connection badge
@@ -179,19 +181,24 @@ qs('cs-settings').onclick = (e) => {
   chrome.runtime.openOptionsPage();
 };
 
-// History toggle
+// History toggle — controls the wrapper div so both list & empty state collapse together
 qs('cs-history-header').onclick = () => {
-  const list = qs('cs-history-list');
+  const body = qs('cs-history-body');
   const chevron = qs('cs-history-chevron');
   const btn = qs('cs-history-header');
-  if (list.style.display === 'none') {
-    list.style.display = '';
-    chevron.classList.add('open');
-    btn.setAttribute('aria-expanded', 'true');
-  } else {
-    list.style.display = 'none';
+  const isOpen = body.style.display !== 'none';
+  if (isOpen) {
+    body.style.display = 'none';
     chevron.classList.remove('open');
     btn.setAttribute('aria-expanded', 'false');
+  } else {
+    body.style.display = '';
+    chevron.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+    // Re-fetch history when expanding
+    chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+      if (res && res.success) renderHistory(res.history);
+    });
   }
 };
 
@@ -208,6 +215,16 @@ qs('cs-capture-btn').onclick = () => {
       qs('cs-generate-section').style.display = '';
       qs('cs-preview-section').style.display = 'none';
       qs('cs-transfer-section').style.display = 'none';
+      // Immediately persist so overlay paste & history both work
+      chrome.runtime.sendMessage({
+        action: 'STORE_CONTEXT_FROM_POPUP',
+        messages: resp.messages,
+        platform: resp.platform
+      }, () => {
+        chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+          if (res && res.success) renderHistory(res.history);
+        });
+      });
     } else {
       showStatus(resp?.error || 'Could not capture conversation.', 'error');
     }
@@ -358,5 +375,18 @@ function saveHistory(fullContext, messages, sourcePlatform) {
     fullContext,
     summary: fullContext
   };
-  chrome.runtime.sendMessage({ action: 'SAVE_TO_HISTORY', entry });
+  chrome.runtime.sendMessage({ action: 'SAVE_TO_HISTORY', entry }, () => {
+    // Re-render history list after saving
+    chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+      if (res && res.success) renderHistory(res.history);
+    });
+  });
 }
+
+// Live-refresh history when overlay captures (writes cs_history in storage)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.cs_history) return;
+  chrome.runtime.sendMessage({ action: 'GET_HISTORY' }, res => {
+    if (res && res.success) renderHistory(res.history);
+  });
+});

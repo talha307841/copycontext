@@ -186,17 +186,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const OVERLAY_CSS = `
   :host {
     all: initial;
+    display: block;
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
     z-index: 2147483647;
     pointer-events: none;
-    display: block;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   .cs-panel {
+    /* Absolute positioning relative to the fixed 0x0 host puts the panel
+       at exactly bottom:24px right:24px inside the viewport. */
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
     pointer-events: auto;
     width: 296px;
     background: #0D0E12;
@@ -414,16 +422,12 @@ const OVERLAY_CSS = `
   // The .cs-panel inside the shadow root resets pointer-events:auto.
   const host = document.createElement('div');
   host.id = 'contextshift-root';
-  host.style.cssText = [
-    'position:fixed',
-    'bottom:0',
-    'right:0',
-    'width:0',
-    'height:0',
-    'overflow:visible',
-    'pointer-events:none',
-    'z-index:2147483647',
-  ].join(';');
+  // Inline styles must set the final position because :host CSS inside the shadow
+  // has lower cascade priority than the host element's own style attribute.
+  // The host is a 0×0 fixed anchor at the viewport bottom-right corner.
+  // overflow:visible lets the absolutely-positioned panel paint outside it.
+  // The panel itself is placed at bottom:24px right:24px via position:absolute.
+  host.style.cssText = 'position:fixed;bottom:0;right:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:2147483647';
 
   const shadow = host.attachShadow({ mode: 'open' });
 
