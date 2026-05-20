@@ -1,24 +1,28 @@
 const NIM_SYSTEM_PROMPT = `
-You are a conversation compression engine. Extract the minimum conversational context needed for a different AI to continue this conversation seamlessly.
+You are a context transfer engine. The user is moving a technical conversation to a new AI. Your job is to produce a COMPLETE, lossless handoff — nothing important should be lost.
 
-Output ONLY this exact YAML structure. No preamble. No explanation. No markdown fences. Start your response with [ContextShift Handoff] and nothing else before it.
+Output EXACTLY this structure. No preamble, no markdown fences, no extra text before [ContextShift Handoff].
 
 [ContextShift Handoff]
-topic: [3-6 word label for what this conversation is about]
-domain: [one word: database / coding / travel / shopping / math / writing / legal / research / general]
-goal: [what the user is trying to accomplish — max 15 words]
-state: [what has been confirmed, created, or established so far — max 15 words]
-decisions: [key choices made, comma-separated fragments — max 25 words]
-error: [exact error message verbatim if any — else "none"]
-next: [the user's last unanswered request — copy as close to verbatim as possible, max 50 words]
-skip: [things already tried and failed, or questions already answered — max 15 words]
+topic: [3-6 word label for this conversation]
+domain: [one of: database / coding / travel / shopping / math / writing / legal / research / general]
+goal: [what the user is trying to accomplish — max 30 words, preserve technical names/IDs exactly]
+state: [what has been accomplished so far — max 30 words, include exact table names, IDs, values]
+decisions:
+  - [key decision, step completed, or constraint established — one per bullet point]
+  - [add as many bullets as needed — no limit, capture every important choice]
+error: [exact verbatim error message if present in the conversation, else "none"]
+next: [the user's last unanswered request — reproduce as verbatim as possible, do NOT shorten or paraphrase]
+skip: [things already tried that failed or questions already answered — max 25 words]
+context: [additional constraints, environment details, IDs, or caveats that don't fit above — max 40 words]
 
 RULES:
-- One line per field — no multi-line values
-- Preserve exact identifiers: table names, variable names, file names, API endpoints — never paraphrase
-- If nothing relevant for a field, write "none"
-- Do NOT include code blocks, schemas, data tables, or lists in this output — they are extracted and appended separately
-- Never wrap output in markdown code blocks
+- Preserve ALL identifiers verbatim: table names, column names, variable names, IDs, API endpoints, file paths
+- "next" must be copied from the last user message — no truncation, no paraphrasing, full verbatim copy
+- "error" must be the exact error string as it appears in the conversation
+- "decisions" is a YAML bullet list — include every important choice or milestone, no limit on items
+- Do NOT embed SQL schemas, code blocks, or data tables in this output — they are extracted and appended separately
+- Write "none" for any field with no relevant content
 `.trim();
 
 function buildCustomSystemPrompt(customFocus) {
@@ -107,7 +111,7 @@ function extractCriticalArtifacts(messages, domain) {
   // 5. Database: schema CSV blocks (format from DB tools: N,colname,db,table,SQLTYPE,...)
   //    and ID/value mapping data — never in code blocks, always plain text
   if (domain === 'database') {
-    const schemaCsvRegex = /(?:\d+,[a-zA-Z_][a-zA-Z0-9_]*,[^,\n]+,[a-zA-Z_][a-zA-Z0-9_]*,(?:BIGINT|INT|VARCHAR|ENUM|TINYINT|DOUBLE|TIMESTAMP|DATETIME|DATE|TEXT|BLOB)[^\n]*\n){4,}/g;
+    const schemaCsvRegex = /(?:\d+,[a-zA-Z_][a-zA-Z0-9_]*,[^,\n]+,[a-zA-Z_][a-zA-Z0-9_]*,(?:BIGINT|INT|TINYINT|SMALLINT|MEDIUMINT|FLOAT|DOUBLE|DECIMAL|VARCHAR|CHAR|TEXT|TINYTEXT|MEDIUMTEXT|LONGTEXT|ENUM|SET|BOOLEAN|BIT|TIMESTAMP|DATETIME|DATE|TIME|YEAR|BLOB|JSON)[^\n]*\n){2,}/g;
     const schemaBlocks = [];
     const seenSch = new Set();
     while ((match = schemaCsvRegex.exec(allText)) !== null) {
@@ -126,8 +130,41 @@ function extractCriticalArtifacts(messages, domain) {
       if (b.length > 30) idBlocks.push(b);
     }
     if (idBlocks.length > 0) {
-      // Keep only the last (most recent state)
-      sections.push({ heading: 'Key ID Mappings', content: idBlocks.slice(-1)[0] });
+      // Keep all unique blocks — each may contain different ID sets
+      const seenId = new Set();
+      const dedupedIdBlocks = idBlocks.filter(b => !seenId.has(b) && seenId.add(b));
+      sections.push({ heading: 'Key ID Mappings', content: dedupedIdBlocks.join('\n\n') });
+    }
+
+    // 5c. Unfenced SQL queries — SELECT/INSERT/UPDATE etc pasted without code fences
+    // Strip already-fenced blocks first so we don't double-capture them
+    const textNoFences = allText.replace(/```[\s\S]*?```/g, '');
+    const sqlKw = /^\s*(?:SELECT\b|FROM\s|WHERE\s|(?:LEFT|RIGHT|INNER|OUTER)\s+JOIN\s|JOIN\s|ON\s+\w|GROUP\s+BY\b|ORDER\s+BY\b|HAVING\s|LIMIT\s|\bUNION\b|INSERT\s+INTO\b|UPDATE\s+\w|DELETE\s+FROM\b|CREATE\s+(?:TABLE|DATABASE|INDEX)\b|ALTER\s+TABLE\b|DROP\s+TABLE\b|WITH\s+\w+\s+AS\b|VALUES\s*\(|SET\s+\w)/i;
+    const sqlLines = textNoFences.split('\n');
+    let sqlBuf = [];
+    const unfencedSqlBlocks = [];
+    for (const line of sqlLines) {
+      if (sqlKw.test(line)) {
+        sqlBuf.push(line);
+      } else if (sqlBuf.length >= 3) {
+        unfencedSqlBlocks.push(sqlBuf.join('\n').trim());
+        sqlBuf = [];
+      } else {
+        sqlBuf = [];
+      }
+    }
+    if (sqlBuf.length >= 3) unfencedSqlBlocks.push(sqlBuf.join('\n').trim());
+    if (unfencedSqlBlocks.length > 0) {
+      const seenSql = new Set();
+      const dedupedSql = unfencedSqlBlocks.filter(b => b.length > 40 && !seenSql.has(b) && seenSql.add(b));
+      if (dedupedSql.length > 0) {
+        const schSection = sections.find(s => s.heading === 'Schemas & Queries');
+        if (schSection) {
+          schSection.content += '\n\n' + dedupedSql.slice(-4).join('\n\n---\n\n');
+        } else {
+          sections.push({ heading: 'Schemas & Queries', content: dedupedSql.slice(-4).join('\n\n---\n\n') });
+        }
+      }
     }
   }
 
