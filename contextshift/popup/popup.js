@@ -58,10 +58,21 @@ function renderPlatformBadge(platform) {
   const badge = qs('cs-platform-badge');
   if (!platform) {
     badge.textContent = 'Not on a supported AI platform';
-    badge.style.color = '#f87171';
+    badge.className = 'cs-platform-badge not-detected';
   } else {
-    badge.textContent = `You're on ${platform.charAt(0).toUpperCase() + platform.slice(1)} ✓`;
-    badge.style.color = '#34d399';
+    badge.textContent = `\u2022 ${platform.charAt(0).toUpperCase() + platform.slice(1)} detected`;
+    badge.className = 'cs-platform-badge detected';
+  }
+}
+function renderApiBadge(connected) {
+  const badge = qs('cs-api-badge');
+  if (!badge) return;
+  if (connected) {
+    badge.textContent = '\u25cf Connected';
+    badge.className = 'cs-badge cs-badge--online';
+  } else {
+    badge.textContent = '\u25cf Offline';
+    badge.className = 'cs-badge cs-badge--offline';
   }
 }
 function renderHistory(history) {
@@ -125,6 +136,23 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     if (res && res.success) renderHistory(res.history);
   });
 
+  // Render API connection badge
+  chrome.storage.local.get(['nim_api_key'], (data) => {
+    const hasKey = data.nim_api_key && !data.nim_api_key.includes('PASTE');
+    renderApiBadge(hasKey);
+  });
+
+  // Update Generate button label to match the saved mode
+  chrome.storage.local.get(['summ_mode'], (settings) => {
+    const mode = settings.summ_mode || 'smart';
+    const labels = {
+      full:   'Generate Full Context',
+      smart:  'Generate Smart Summary  (NVIDIA NIM)',
+      custom: 'Generate Custom Summary  (NVIDIA NIM)',
+    };
+    qs('cs-generate-btn').textContent = labels[mode] || labels.smart;
+  });
+
   // Restore a completed NIM stream if popup was closed mid-generation (< 5 min old)
   chrome.storage.local.get(['cs_nim_stream'], (data) => {
     const s = data.cs_nim_stream;
@@ -135,7 +163,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       qs('cs-preview-section').style.display = '';
       qs('cs-transfer-section').style.display = '';
       qs('cs-preview').value = s.text;
-      showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
+      showStatus('✓ Smart summary ready — powered by NVIDIA NIM', 'success');
     } else if (s.status === 'streaming') {
       qs('cs-preview-section').style.display = '';
       qs('cs-transfer-section').style.display = '';
@@ -154,13 +182,16 @@ qs('cs-settings').onclick = (e) => {
 // History toggle
 qs('cs-history-header').onclick = () => {
   const list = qs('cs-history-list');
-  const toggle = qs('cs-history-toggle');
+  const chevron = qs('cs-history-chevron');
+  const btn = qs('cs-history-header');
   if (list.style.display === 'none') {
     list.style.display = '';
-    toggle.textContent = '▲';
+    chevron.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
   } else {
     list.style.display = 'none';
-    toggle.textContent = '▼';
+    chevron.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
   }
 };
 
@@ -183,93 +214,108 @@ qs('cs-capture-btn').onclick = () => {
   });
 };
 
-// Generate button — streams via long-lived port with storage-backup fallback
+// Generate button — respects summ_mode from Settings
 qs('cs-generate-btn').onclick = () => {
   if (!captured) return;
   const messages = captured.messages;
   const sourcePlatform = captured.platform;
 
-  qs('cs-preview-section').style.display = '';
-  qs('cs-transfer-section').style.display = '';
-  qs('cs-preview').value = '';
+  // Read the mode the user chose in Settings before doing anything
+  chrome.storage.local.get(['summ_mode'], (settings) => {
+    const mode = settings.summ_mode || 'smart';
 
-  showStatus('⏳ Connecting to NVIDIA NIM...');
-  setLoading(true);
+    qs('cs-preview-section').style.display = '';
+    qs('cs-transfer-section').style.display = '';
+    qs('cs-preview').value = '';
 
-  let fullText = '';
-  let streamDone = false;
-  let pollTimer = null;
-
-  function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
-
-  function startStoragePoll() {
-    if (pollTimer) return;
-    pollTimer = setInterval(() => {
-      chrome.storage.local.get(['cs_nim_stream'], (data) => {
-        const s = data.cs_nim_stream;
-        if (!s || streamDone) { stopPoll(); return; }
-        if (s.text && s.text.length > fullText.length) {
-          fullText = s.text;
-          qs('cs-preview').value = fullText;
-          qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
-          showStatus('✍️ Generating... (background)');
-        }
-        if (s.status === 'done') {
-          stopPoll(); streamDone = true;
-          setLoading(false);
-          showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
-          saveHistory(fullText, messages, sourcePlatform);
-        } else if (s.status === 'error') {
-          stopPoll(); streamDone = true;
-          setLoading(false);
-          const fallback = s.text || extractiveSummarize(messages);
-          qs('cs-preview').value = fallback;
-          showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
-          saveHistory(fallback, messages, sourcePlatform);
-        }
-      });
-    }, 400);
-  }
-
-  // Clear previous stream record before starting
-  chrome.storage.local.remove('cs_nim_stream', () => {
-    let port;
-    try {
-      port = chrome.runtime.connect({ name: 'nimStream' });
-    } catch (e) {
-      setLoading(false);
-      showStatus('⚠️ Could not connect — reload the extension.', 'error');
+    // ── Full mode: skip NIM entirely, use raw formatted context ──────────────
+    if (mode === 'full') {
+      const fullContext = formatFullContext(messages, sourcePlatform, sourcePlatform);
+      qs('cs-preview').value = fullContext;
+      showStatus('✓ Full context ready to transfer', 'success');
+      saveHistory(fullContext, messages, sourcePlatform);
       return;
     }
 
-    port.postMessage({ messages, mode: 'smart', customFocus: null });
+    // ── Smart / Custom mode: stream through NVIDIA NIM ────────────────────────
+    showStatus('⏳ Connecting to NVIDIA NIM...');
+    setLoading(true);
 
-    port.onMessage.addListener((msg) => {
-      if (msg.chunk) {
-        fullText += msg.chunk;
-        qs('cs-preview').value = fullText;
-        qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
-        showStatus('✍️ Streaming NVIDIA NIM response...');
-      } else if (msg.done) {
-        stopPoll(); streamDone = true;
+    let fullText = '';
+    let streamDone = false;
+    let pollTimer = null;
+
+    function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    function startStoragePoll() {
+      if (pollTimer) return;
+      pollTimer = setInterval(() => {
+        chrome.storage.local.get(['cs_nim_stream'], (data) => {
+          const s = data.cs_nim_stream;
+          if (!s || streamDone) { stopPoll(); return; }
+          if (s.text && s.text.length > fullText.length) {
+            fullText = s.text;
+            qs('cs-preview').value = fullText;
+            qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
+            showStatus('✍️ Generating... (background)');
+          }
+          if (s.status === 'done') {
+            stopPoll(); streamDone = true;
+            setLoading(false);
+            showStatus('✓ Smart summary ready — powered by NVIDIA NIM', 'success');
+            saveHistory(fullText, messages, sourcePlatform);
+          } else if (s.status === 'error') {
+            stopPoll(); streamDone = true;
+            setLoading(false);
+            const fallback = s.text || extractiveSummarize(messages);
+            qs('cs-preview').value = fallback;
+            showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
+            saveHistory(fallback, messages, sourcePlatform);
+          }
+        });
+      }, 400);
+    }
+
+    // Clear previous stream record before starting
+    chrome.storage.local.remove('cs_nim_stream', () => {
+      let port;
+      try {
+        port = chrome.runtime.connect({ name: 'nimStream' });
+      } catch (e) {
         setLoading(false);
-        showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
-        saveHistory(fullText, messages, sourcePlatform);
-        port.disconnect();
-      } else if (msg.error) {
-        stopPoll(); streamDone = true;
-        setLoading(false);
-        const fallback = msg.fallback || extractiveSummarize(messages);
-        qs('cs-preview').value = fallback;
-        showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
-        saveHistory(fallback, messages, sourcePlatform);
-        port.disconnect();
+        showStatus('⚠️ Could not connect — reload the extension.', 'error');
+        return;
       }
-    });
 
-    // Port closes when popup closes (tab switch) — fall back to polling storage
-    port.onDisconnect.addListener(() => {
-      if (!streamDone) startStoragePoll();
+      port.postMessage({ messages, mode, customFocus: null });
+
+      port.onMessage.addListener((msg) => {
+        if (msg.chunk) {
+          fullText += msg.chunk;
+          qs('cs-preview').value = fullText;
+          qs('cs-preview').scrollTop = qs('cs-preview').scrollHeight;
+          showStatus('✍️ Streaming NVIDIA NIM response...');
+        } else if (msg.done) {
+          stopPoll(); streamDone = true;
+          setLoading(false);
+          showStatus('✓ Smart summary ready — powered by NVIDIA NIM', 'success');
+          saveHistory(fullText, messages, sourcePlatform);
+          port.disconnect();
+        } else if (msg.error) {
+          stopPoll(); streamDone = true;
+          setLoading(false);
+          const fallback = msg.fallback || extractiveSummarize(messages);
+          qs('cs-preview').value = fallback;
+          showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
+          saveHistory(fallback, messages, sourcePlatform);
+          port.disconnect();
+        }
+      });
+
+      // Port closes when popup closes (tab switch) — fall back to polling storage
+      port.onDisconnect.addListener(() => {
+        if (!streamDone) startStoragePoll();
+      });
     });
   });
 };
@@ -278,8 +324,10 @@ qs('cs-generate-btn').onclick = () => {
 qs('cs-copy-btn').onclick = () => {
   const text = qs('cs-preview').value;
   navigator.clipboard.writeText(text).then(() => {
-    qs('cs-copy-btn').textContent = '✓ Copied!';
-    setTimeout(() => qs('cs-copy-btn').textContent = 'Copy to Clipboard', 1800);
+    qs('cs-copy-btn').innerHTML = '\u2713 Copied!';
+    setTimeout(() => {
+      qs('cs-copy-btn').innerHTML = `<svg class="cs-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 1800);
     showStatus('Copied to clipboard.', 'success');
   });
 };

@@ -64,3 +64,31 @@ button:active {
   margin-left: 10px;
   font-size: 0.97rem;
 }
+
+/* Storage bar */
+.storage-bar-wrap {
+  background: #1a1a26;
+  border-radius: 6px;
+  height: 10px;
+  overflow: hidden;
+  margin: 10px 0 6px;
+  border: 1px solid #7c5cfc33;
+}
+.storage-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #7c5cfc, #a78bfa);
+  border-radius: 6px;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+.storage-info {
+  font-size: 0.9rem;
+  color: #8888aa;
+  margin: 0 0 4px;
+}
+.storage-bar.warn {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+.storage-bar.danger {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}

@@ -1,6 +1,465 @@
+/* ==========================================================================
+   ContextShift Popup — Vercel-inspired Developer Dark Mode
+   Color palette:
+     Background  #0D0E12  (deep matte slate)
+     Surface     #111318  (card / header)
+     Border      #1F2937
+     Accent      #7C3AED  (electric purple)
+     Accent glow rgba(124,58,237,0.35)
+     Success     #10B981  (emerald)
+     Error       #F87171
+     Text        #F9FAFB
+     Muted       #6B7280
+   ========================================================================== */
+
+/* ── Reset & root ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:            #0D0E12;
+  --surface:       #111318;
+  --surface-hover: #161A23;
+  --border:        #1F2937;
+  --border-focus:  #374151;
+  --accent:        #7C3AED;
+  --accent-dark:   #5B21B6;
+  --accent-glow:   rgba(124, 58, 237, 0.35);
+  --accent-subtle: rgba(124, 58, 237, 0.12);
+  --success:       #10B981;
+  --success-glow:  rgba(16, 185, 129, 0.3);
+  --error:         #F87171;
+  --text:          #F9FAFB;
+  --text-muted:    #6B7280;
+  --text-dim:      #374151;
+  --mono:          'Fira Code', 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
+  --sans:          'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius-sm:     6px;
+  --radius:        9px;
+  --radius-lg:     12px;
+}
+
+body {
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  min-width: 400px;
+}
+
+/* ── Popup shell ── */
 #cs-popup {
-  width: 380px;
-  background: var(--bg-primary, #0a0a0f);
+  width: 400px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Header ── */
+#cs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.cs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cs-logo-icon {
+  font-size: 17px;
+  color: var(--accent);
+}
+
+.cs-logo-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.cs-header-right {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* API status badge */
+.cs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.cs-badge--offline {
+  background: rgba(55, 65, 81, 0.5);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.cs-badge--online {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+}
+
+/* Settings icon button */
+.cs-icon-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cs-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ── Platform row ── */
+#cs-platform-row {
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.cs-platform-badge {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cs-platform-badge.detected {
+  color: var(--success);
+}
+
+.cs-platform-badge.not-detected {
+  color: var(--error);
+}
+
+/* ── Section spacing ── */
+#cs-capture-section,
+#cs-generate-section,
+#cs-preview-section,
+#cs-transfer-section,
+#cs-history-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Buttons ── */
+.cs-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  border-radius: var(--radius);
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: opacity 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+/* Primary: purple gradient */
+.cs-btn--primary {
+  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+  color: #fff;
+  box-shadow: 0 2px 16px var(--accent-glow);
+}
+
+.cs-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.55);
+  opacity: 0.95;
+}
+
+.cs-btn--primary:active:not(:disabled) { opacity: 0.85; }
+
+.cs-btn--primary:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Secondary: dark surface + accent border */
+.cs-btn--secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.cs-btn--secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: #C4B5FD;
+}
+
+/* Outline: thin border */
+.cs-btn--outline {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  padding: 9px 14px;
+}
+
+.cs-btn--outline:hover:not(:disabled) {
+  border-color: var(--border-focus);
+  color: var(--text);
+}
+
+/* Accent: solid purple (smaller) */
+.cs-btn--accent {
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  padding: 9px 14px;
+  box-shadow: 0 1px 8px var(--accent-glow);
+  width: auto;
+}
+
+.cs-btn--accent:hover:not(:disabled) {
+  background: var(--accent-dark);
+  box-shadow: 0 2px 14px var(--accent-glow);
+}
+
+.cs-btn-icon { flex-shrink: 0; }
+.cs-btn-icon--right { margin-left: 2px; }
+
+/* ── Privacy note ── */
+.cs-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.cs-privacy svg { margin-top: 1px; flex-shrink: 0; }
+
+/* ── Preview card ── */
+.cs-card {
+  background: #0A0B0F;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.cs-card-label {
+  padding: 7px 12px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+#cs-preview {
+  display: block;
+  width: 100%;
+  min-height: 110px;
+  max-height: 200px;
+  background: transparent;
+  color: #9CA3AF;
+  border: none;
+  outline: none;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  resize: vertical;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#cs-preview::selection { background: var(--accent-subtle); }
+
+/* ── Transfer action row ── */
+.cs-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cs-action-row > .cs-btn--outline {
+  flex-shrink: 0;
+  width: auto;
+}
+
+.cs-inject-combo {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.cs-inject-combo:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(124,58,237,0.2);
+}
+
+.cs-select {
+  flex: 1;
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  outline: none;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: var(--sans);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  min-width: 0;
+}
+
+.cs-inject-combo .cs-btn--accent {
+  border-radius: 0;
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── History accordion ── */
+#cs-history-section {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cs-history-toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding-bottom: 2px;
+  transition: color 0.15s;
+}
+
+.cs-history-toggle:hover { color: var(--text); }
+
+.cs-chevron {
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.cs-chevron.open {
+  transform: rotate(180deg);
+}
+
+#cs-history-list {
+  list-style: none;
+  padding: 8px 0 2px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 130px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#cs-history-list li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#cs-history-list li:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-subtle);
+}
+
+.cs-history-empty {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* ── Status footer ── */
+#cs-status-bar {
+  padding: 9px 16px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+#cs-status-bar.success { color: var(--success); }
+#cs-status-bar.error   { color: var(--error); }
+#cs-status-bar.info    { color: #818CF8; }
+
+/* Loading spinner */
+#cs-status-bar.loading::before {
+  content: '';
+  display: inline-block;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: cs-spin 0.65s linear infinite;
+}
+
+@keyframes cs-spin {
+  to { transform: rotate(360deg); }
+}
+
   color: var(--text-primary, #f0f0ff);
   font-family: 'DM Sans', system-ui, sans-serif;
   border-radius: 12px;
