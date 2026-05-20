@@ -57,6 +57,16 @@
       <label><input type="checkbox" id="save-history" checked /> Save history locally</label>
       <button id="clear-history">Clear all saved history</button>
     </section>
+    <section class="settings-section">
+      <h2>Storage &amp; Compression</h2>
+      <p class="description">History and context data stored locally on this device.</p>
+      <div class="storage-bar-wrap">
+        <div class="storage-bar" id="storage-bar"></div>
+      </div>
+      <p class="storage-info" id="storage-info">Calculating…</p>
+      <p class="privacy-note">🗜️ <strong>Compression active</strong> — entries are automatically compressed with LZ-String (~50–65% smaller) before being saved.</p>
+      <button id="refresh-storage" class="btn-secondary" style="margin-top:6px;">Refresh</button>
+    </section>
     <section>
       <div class="desc">Version 1.0.0 — <a href="https://github.com/yourrepo/contextshift" target="_blank">GitHub</a></div>
       <div class="desc">No data ever leaves your device.</div>

@@ -148,9 +148,32 @@ document.addEventListener('DOMContentLoaded', () => {
   qs('clear-history').onclick = function() {
     chrome.storage.local.remove(['cs_history'], () => {
       alert('History cleared.');
+      refreshStorageStats();
     });
   };
+
+  refreshStorageStats();
+  qs('refresh-storage').onclick = refreshStorageStats;
 });
+
+function refreshStorageStats() {
+  const QUOTA_BYTES = 5 * 1024 * 1024; // chrome.storage.local default: 5 MB
+  chrome.storage.local.getBytesInUse(null, (bytesUsed) => {
+    const pct = Math.min((bytesUsed / QUOTA_BYTES) * 100, 100);
+    const bar = qs('storage-bar');
+    const info = qs('storage-info');
+
+    bar.style.width = pct.toFixed(1) + '%';
+    bar.classList.remove('warn', 'danger');
+    if (pct >= 80) bar.classList.add('danger');
+    else if (pct >= 50) bar.classList.add('warn');
+
+    const usedKB  = (bytesUsed / 1024).toFixed(1);
+    const totalMB = (QUOTA_BYTES / (1024 * 1024)).toFixed(0);
+    const pctLabel = pct.toFixed(1);
+    info.textContent = `${usedKB} KB used of ${totalMB} MB (${pctLabel}%)`;
+  });
+}
 
 function showNimStatus(message, type) {
   const el = qs('nim-status');
