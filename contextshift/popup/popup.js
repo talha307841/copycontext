@@ -135,7 +135,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       qs('cs-preview-section').style.display = '';
       qs('cs-transfer-section').style.display = '';
       qs('cs-preview').value = s.text;
-      showStatus('✓ Summary restored — NVIDIA NIM', 'success');
+      showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
     } else if (s.status === 'streaming') {
       qs('cs-preview-section').style.display = '';
       qs('cs-transfer-section').style.display = '';
@@ -217,16 +217,14 @@ qs('cs-generate-btn').onclick = () => {
         if (s.status === 'done') {
           stopPoll(); streamDone = true;
           setLoading(false);
-          showStatus('✓ Summary complete — NVIDIA NIM', 'success');
+          showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
           saveHistory(fullText, messages, sourcePlatform);
         } else if (s.status === 'error') {
           stopPoll(); streamDone = true;
           setLoading(false);
           const fallback = s.text || extractiveSummarize(messages);
           qs('cs-preview').value = fallback;
-          showStatus(s.errorStatus === 'no_key'
-            ? '⚠️ No API key — add it in Settings. Showing local summary.'
-            : `⚠️ NIM error ${s.errorStatus || ''} — showing local summary.`, 'error');
+          showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
           saveHistory(fallback, messages, sourcePlatform);
         }
       });
@@ -255,7 +253,7 @@ qs('cs-generate-btn').onclick = () => {
       } else if (msg.done) {
         stopPoll(); streamDone = true;
         setLoading(false);
-        showStatus('✓ Summary complete — NVIDIA NIM', 'success');
+        showStatus('✓ Compressed by NVIDIA NIM — ready to transfer', 'success');
         saveHistory(fullText, messages, sourcePlatform);
         port.disconnect();
       } else if (msg.error) {
@@ -263,9 +261,7 @@ qs('cs-generate-btn').onclick = () => {
         setLoading(false);
         const fallback = msg.fallback || extractiveSummarize(messages);
         qs('cs-preview').value = fallback;
-        showStatus(msg.status === 'no_key'
-          ? '⚠️ No API key — add it in Settings. Showing local summary.'
-          : `⚠️ NIM error ${msg.status || ''} — showing local summary.`, 'error');
+        showStatus('⚠️ Using local extraction — add NIM key in Settings for AI compression', 'error');
         saveHistory(fallback, messages, sourcePlatform);
         port.disconnect();
       }

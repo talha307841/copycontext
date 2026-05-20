@@ -1,25 +1,128 @@
 const NIM_SYSTEM_PROMPT = `
-You are ContextShift, an AI conversation compressor specialized in handoff paragraphs.
+You are a conversation compression engine. Extract the minimum conversational context needed for a different AI to continue this conversation seamlessly.
 
-Write a single dense paragraph (100–180 words) that gives a brand-new AI assistant everything it needs to continue this conversation seamlessly — with zero re-reading of the original.
+Output ONLY this exact YAML structure. No preamble. No explanation. No markdown fences. Start your response with [ContextShift Handoff] and nothing else before it.
 
-Structure the paragraph in this exact order:
-1. Domain + topic + how technical it is (1 sentence)
-2. What the user is trying to accomplish, and everything that was established, built, or decided — include ALL specific details verbatim: exact file names, API endpoints, error messages, model names, function names, variable names, values, and decisions (2–4 sentences)
-3. Any blockers, constraints, or open questions that came up (1 sentence, skip if none)
-4. Where the conversation ended and the user's exact next request (1 sentence)
+[ContextShift Handoff]
+topic: [3-6 word label for what this conversation is about]
+domain: [one word: database / coding / travel / shopping / math / writing / legal / research / general]
+goal: [what the user is trying to accomplish — max 15 words]
+state: [what has been confirmed, created, or established so far — max 15 words]
+decisions: [key choices made, comma-separated fragments — max 25 words]
+error: [exact error message verbatim if any — else "none"]
+next: [the user's last unanswered request — copy as close to verbatim as possible, max 30 words]
+skip: [things already tried and failed, or questions already answered — max 15 words]
 
-Rules:
-- Prose only — no bullet points, no headers, no markdown
-- Third-person voice: "The user is building... The assistant explained... It was decided that..."
-- Never paraphrase specific technical identifiers — reproduce them exactly
-- If code was central, name the key function, file, or snippet inline in backticks
-- 100–180 words — dense but complete
-- Begin directly with the paragraph — no preamble like "Here is a summary"
+RULES:
+- One line per field — no multi-line values
+- Preserve exact identifiers: table names, variable names, file names, API endpoints — never paraphrase
+- If nothing relevant for a field, write "none"
+- Do NOT include code blocks, schemas, data tables, or lists in this output — they are extracted and appended separately
+- Never wrap output in markdown code blocks
 `.trim();
 
 function buildCustomSystemPrompt(customFocus) {
-  return NIM_SYSTEM_PROMPT + `\n\nSPECIAL INSTRUCTION: The user wants the paragraph to focus specifically on: "${customFocus}". Emphasize details related to this topic. If the conversation did not cover it, note that briefly at the end of the paragraph.`.trim();
+  return NIM_SYSTEM_PROMPT + `\n\nADDITIONAL INSTRUCTION: User wants focus on: "${customFocus}". Reflect this in the goal and next fields. If the conversation did not cover this, set next to: "Topic not covered — user wants to discuss: ${customFocus}"`;
+}
+
+function detectDomain(messages) {
+  const allText = messages.map(m => m.content).join(' ').toLowerCase();
+  const patterns = {
+    database: /create\s+table|insert\s+into|update\s+\w+\s+set|select\s+.+from|alter\s+table|drop\s+table|foreign\s+key|primary\s+key|varchar|bigint|\bschema\b|\bmigration\b|\bsql\b|postgres|mysql|sqlite|mongodb/,
+    coding:   /function\s+\w+|const\s+\w+\s*=|class\s+\w+\s*\{|\bimport\s+|\bexport\s+|def\s+\w+\s*\(|\.js\b|\.ts\b|\.py\b|\bnpm\s+|\bpip\s+|console\.log|print\(/,
+    travel:   /\bhotel\b|\bflight\b|\bairport\b|\bitinerary\b|\bvisa\b|\bpassport\b|\bbooking\b|\bairbnb\b|check.?in|check.?out|\bdestination\b|\btravel\b|\btrip\b|\bhostel\b|\bresort\b/,
+    shopping: /\$[\d.,]+|\bprice\b|\bbuy\b|\bpurchase\b|\bcart\b|\border\b|\bproduct\b|\breview\b|\brating\b|\bamazon\b|\bebay\b|\bshipping\b|\bdiscount\b|\bcoupon\b/,
+    math:     /\bequation\b|\bformula\b|\bintegral\b|\bderivative\b|\bmatrix\b|\bcalculate\b|solve\s+for|\bproof\b|\btheorem\b|\bprobability\b|\bstatistics\b/,
+    writing:  /\bwrite\b|\bessay\b|blog\s+post|\bdraft\b|\bparagraph\b|\bchapter\b|\brewrite\b|\bproofread\b|\boutline\b|\bthesis\b/,
+    legal:    /\bcontract\b|\bclause\b|\bliability\b|terms\s+of\s+service|\blawsuit\b|\bstatute\b|\bregulation\b|\bcompliance\b|\bagreement\b/,
+    research: /research\s+paper|\bcitation\b|\bjournal\b|\bhypothesis\b|\bmethodology\b|\babstract\b|\bbibliography\b|literature\s+review/,
+  };
+  for (const [domain, pattern] of Object.entries(patterns)) {
+    if (pattern.test(allText)) return domain;
+  }
+  return 'general';
+}
+
+function extractCriticalArtifacts(messages, domain) {
+  const allText = messages.map(m => `[${m.role.toUpperCase()}]:\n${m.content}`).join('\n\n---\n\n');
+  const sections = [];
+
+  // 1. Fenced code blocks — extracted verbatim, never summarized
+  const codeBlocks = [];
+  const codeRegex = /```(\w*)\n([\s\S]*?)```/g;
+  let match;
+  const seenCode = new Set();
+  while ((match = codeRegex.exec(allText)) !== null) {
+    const lang = match[1].trim();
+    const code = match[2].trim();
+    if (code.length > 15 && !seenCode.has(code)) {
+      seenCode.add(code);
+      codeBlocks.push({ lang, code });
+    }
+  }
+  if (codeBlocks.length > 0) {
+    const label = domain === 'database' ? 'Schemas & Queries'
+                : domain === 'coding'   ? 'Code'
+                : 'Code & Queries';
+    sections.push({
+      heading: label,
+      content: codeBlocks.slice(-6).map(b => `\`\`\`${b.lang}\n${b.code}\n\`\`\``).join('\n\n')
+    });
+  }
+
+  // 2. Markdown tables
+  const tables = [];
+  const tableRegex = /(\|.+\|\n\|[-| :]+\|\n(?:\|.+\|(?:\n|$))*)/g;
+  const seenTables = new Set();
+  while ((match = tableRegex.exec(allText)) !== null) {
+    const tbl = match[1].trim();
+    if (!seenTables.has(tbl)) { seenTables.add(tbl); tables.push(tbl); }
+  }
+  if (tables.length > 0) {
+    sections.push({ heading: 'Tables', content: tables.slice(-3).join('\n\n') });
+  }
+
+  // 3. Bullet/numbered lists with 3+ items (products, trip stops, task lists)
+  if (['shopping', 'travel', 'research', 'general'].includes(domain)) {
+    const listBlocks = [];
+    const listRegex = /^((?:(?:\d+[.)\]\s+|\*\s+|-\s+)[^\n]+\n?){3,})/gm;
+    while ((match = listRegex.exec(allText)) !== null) {
+      const block = match[1].trim();
+      if (block.length > 40) listBlocks.push(block);
+    }
+    if (listBlocks.length > 0) {
+      const label = domain === 'shopping' ? 'Products & Options'
+                  : domain === 'travel'   ? 'Itinerary & Stops'
+                  : 'Key Items';
+      sections.push({ heading: label, content: listBlocks.slice(-3).join('\n\n') });
+    }
+  }
+
+  // 4. URLs
+  const urls = [...new Set(allText.match(/https?:\/\/[^\s"')<>\]]{10,150}/g) || [])];
+  if (urls.length > 0) {
+    sections.push({ heading: 'Links', content: urls.slice(0, 12).join('\n') });
+  }
+
+  return sections;
+}
+
+function formatArtifactSection(sections, domain) {
+  if (sections.length === 0) return '';
+  const domainHeadings = {
+    database: 'Preserved Context: Schemas & Queries',
+    coding:   'Preserved Context: Code',
+    travel:   'Preserved Context: Trip Details',
+    shopping: 'Preserved Context: Products & Prices',
+    math:     'Preserved Context: Calculations',
+    writing:  'Preserved Context: Drafts & Excerpts',
+    legal:    'Preserved Context: Key Clauses',
+    research: 'Preserved Context: References & Data',
+    general:  'Preserved Context: Key Details',
+  };
+  const heading = domainHeadings[domain] || 'Preserved Context: Key Details';
+  const body = sections.map(s => `### ${s.heading}\n${s.content}`).join('\n\n');
+  return `\n\n---\n## ${heading}\n\u26a0\ufe0f The following was extracted verbatim — do not summarize or paraphrase:\n\n${body}`;
 }
 
 function formatConversationForNIM(messages, maxChars = 12000) {
@@ -35,6 +138,10 @@ function formatConversationForNIM(messages, maxChars = 12000) {
 async function callNIMSummarizer({ messages, mode, customFocus, config }) {
   const { NIM_API_KEY, NIM_ENDPOINT, NIM_MODEL, MAX_TOKENS_SUMMARY, MAX_TOKENS_CUSTOM, TEMPERATURE, TOP_P, MAX_INPUT_CHARS } = config;
 
+  const domain = detectDomain(messages);
+  const artifactSections = extractCriticalArtifacts(messages, domain);
+  const artifactSection = formatArtifactSection(artifactSections, domain);
+
   if (!NIM_API_KEY || NIM_API_KEY.includes("PASTE-YOUR-KEY")) {
     return { success: false, reason: "no_key", fallback: extractiveSummarize(messages) };
   }
@@ -46,12 +153,13 @@ async function callNIMSummarizer({ messages, mode, customFocus, config }) {
 
   const body = {
     model: NIM_MODEL,
-    temperature: TEMPERATURE,
-    top_p: TOP_P,
-    max_tokens: maxTokens,
+    temperature: 0.1,      // Lower = more deterministic = faster, less wandering
+    top_p: 0.75,           // Tighter sampling = faster generation
+    max_tokens: 180,       // YAML output is ~80-120 tokens — 180 is the safe ceiling
+    stream: false,
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Here is the conversation to analyze:\n\n${conversationText}` }
+      { role: "user", content: `Compress this conversation:\n\n${conversationText}` }
     ]
   };
 
@@ -75,7 +183,7 @@ async function callNIMSummarizer({ messages, mode, customFocus, config }) {
     const data = await response.json();
     const summary = data?.choices?.[0]?.message?.content?.trim();
     if (!summary) return { success: false, reason: "empty_response", fallback: extractiveSummarize(messages) };
-    return { success: true, summary };
+    return { success: true, summary: summary + artifactSection };
 
   } catch (err) {
     return { success: false, reason: "network_error", error: err.message, fallback: extractiveSummarize(messages) };
@@ -83,21 +191,41 @@ async function callNIMSummarizer({ messages, mode, customFocus, config }) {
 }
 
 function extractiveSummarize(messages) {
-  if (!messages || messages.length === 0) return "No conversation found.";
-  const userMessages = messages.filter(m => m.role === "user");
-  const assistantMessages = messages.filter(m => m.role === "assistant");
-  const firstUser = userMessages[0]?.content?.trim() || "";
-  const lastUser = userMessages[userMessages.length - 1]?.content?.trim() || "";
-  const longestAssistant = assistantMessages.sort((a, b) => b.content.length - a.content.length)[0]?.content?.trim() || "";
-  const hadShift = userMessages.length > 3 && lastUser.slice(0, 50).toLowerCase() !== firstUser.slice(0, 50).toLowerCase();
+  if (!messages || messages.length === 0) return "[ContextShift Handoff]\ntopic: empty conversation\ngoal: none\nstate: none\ndecisions: none\nerror: none\nnext: none\nskip: none";
 
-  const topicHint = firstUser.split(" ").slice(0, 12).join(" ");
-  const shiftNote = hadShift ? ` The conversation evolved, ending with: "${lastUser.slice(0, 100)}${lastUser.length > 100 ? '...' : ''}".` : "";
-  const keyResponse = longestAssistant.slice(0, 300) + (longestAssistant.length > 300 ? "..." : "");
-  return `This conversation covers the topic: "${topicHint}..." across ${messages.length} messages. The user's goal was: ${firstUser.slice(0, 150)}${firstUser.length > 150 ? "..." : ""}. The assistant's key response: ${keyResponse}${shiftNote} The user's last request was: "${lastUser.slice(0, 200)}${lastUser.length > 200 ? "..." : ""}". (Note: this is a local fallback summary — add your NVIDIA NIM API key in ContextShift Settings for full AI-compressed handoffs.)`;
+  const userMsgs = messages.filter(m => m.role === "user");
+  const asstMsgs = messages.filter(m => m.role === "assistant");
+
+  const firstUser = userMsgs[0]?.content?.trim().slice(0, 80) || "none";
+  const lastUser  = userMsgs[userMsgs.length - 1]?.content?.trim().slice(0, 150) || "none";
+  const firstAI   = asstMsgs[0]?.content?.trim().slice(0, 80) || "none";
+
+  const allText = messages.map(m => m.content).join(" ");
+  const errorMatches = allText.match(/Error[:\s][^\n.]{5,60}/g) || [];
+  const errors = [...new Set(errorMatches)].slice(0, 2);
+
+  const domain = detectDomain(messages);
+  const artifactSections = extractCriticalArtifacts(messages, domain);
+  const artifactAppend = formatArtifactSection(artifactSections, domain);
+
+  return `[ContextShift Handoff]
+topic: ${firstUser.split(" ").slice(0, 5).join(" ")}
+domain: ${domain}
+goal: ${firstUser.slice(0, 80)}
+state: ${firstAI.slice(0, 80)}
+decisions: none (NIM key not configured — add in Settings)
+error: ${errors[0] || "none"}
+next: ${lastUser.slice(0, 150)}
+skip: none
+⚠️ Auto-extracted locally. Add NVIDIA NIM key in Settings for AI compression.` + artifactAppend;
 }
 
 function wrapForInjection(nimSummary, sourcePlatform, targetPlatform) {
-  const names = { chatgpt: "ChatGPT", claude: "Claude", gemini: "Gemini", perplexity: "Perplexity", grok: "Grok" };
-  return `[ContextShift: transferred from ${names[sourcePlatform] || sourcePlatform}]\n\nI'm continuing a conversation from ${names[sourcePlatform] || sourcePlatform}. Here's the full context brief — please read it and pick up exactly where we left off.\n\n${nimSummary}\n\n---\nReady to continue. What should we do next?`;
+  const names = {
+    chatgpt: "ChatGPT", claude: "Claude",
+    gemini: "Gemini", perplexity: "Perplexity", grok: "Grok"
+  };
+  const from = names[sourcePlatform] || sourcePlatform;
+
+  return `I'm continuing a conversation from ${from}. Here is the full context — please read it and continue from the next field.\n\n${nimSummary}\n\nReady. Please continue from the "next" field above.`;
 }

@@ -313,6 +313,10 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'nimStream') return;
 
   port.onMessage.addListener(async ({ messages, mode, customFocus }) => {
+    const domain = detectDomain(messages);
+    const artifactSections = extractCriticalArtifacts(messages, domain);
+    const artifactSection = formatArtifactSection(artifactSections, domain);
+
     chrome.storage.local.get(['nim_api_key', 'nim_model'], async (stored) => {
       const key = stored.nim_api_key || CONTEXTSHIFT_CONFIG.NIM_API_KEY;
 
@@ -384,6 +388,10 @@ chrome.runtime.onConnect.addListener((port) => {
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6).trim();
             if (data === '[DONE]') {
+              if (artifactSection) {
+                accumulated += artifactSection;
+                safePost({ chunk: artifactSection });
+              }
               safePost({ done: true });
               chrome.storage.local.set({ cs_nim_stream: { status: 'done', text: accumulated, ts: Date.now() } });
               chrome.alarms.clear('nim_keepalive');
@@ -405,6 +413,10 @@ chrome.runtime.onConnect.addListener((port) => {
           }
         }
 
+        if (artifactSection) {
+          accumulated += artifactSection;
+          safePost({ chunk: artifactSection });
+        }
         safePost({ done: true });
         chrome.storage.local.set({ cs_nim_stream: { status: 'done', text: accumulated, ts: Date.now() } });
         chrome.alarms.clear('nim_keepalive');
