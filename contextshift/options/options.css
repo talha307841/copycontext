@@ -1,94 +1,666 @@
-#cs-options {
-  width: 380px;
-  background: #0a0a0f;
-  color: #f0f0ff;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  border-radius: 12px;
-  box-shadow: 0 4px 32px 0 #0008;
-  padding: 18px 24px 24px 24px;
-}
-h2 {
-  color: #7c5cfc;
-  font-size: 1.3rem;
-  margin-bottom: 18px;
-}
-section {
-  margin-bottom: 18px;
-}
-label {
-  font-size: 1rem;
-  color: #f0f0ff;
-  margin-right: 8px;
-}
-input[type="password"], input[type="text"] {
-  width: 100%;
-  border-radius: 6px;
-  border: 1px solid #7c5cfc33;
-  background: #1a1a26;
-  color: #f0f0ff;
-  padding: 7px 10px;
-  font-size: 1rem;
-  margin-bottom: 8px;
-}
-input[type="range"] {
-  width: 180px;
-  vertical-align: middle;
-}
-#max-len-val {
-  color: #7c5cfc;
-  font-weight: 600;
-  margin-left: 8px;
-}
-button {
-  background: #7c5cfc;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-right: 8px;
-  margin-top: 4px;
-  transition: background 0.15s;
-}
-button:active {
-  background: #9b7dff;
-}
-.desc {
-  color: #8888aa;
-  font-size: 0.97rem;
-  margin-top: 6px;
-}
-#nim-test-result {
-  margin-left: 10px;
-  font-size: 0.97rem;
+/* ContextShift Settings — Redesigned Dark Theme */
+:root {
+  --bg:            #0D0E12;
+  --surface:       #111318;
+  --surface-2:     #0A0B0F;
+  --surface-hover: #161A23;
+  --border:        #1F2937;
+  --border-focus:  #374151;
+  --accent:        #7C3AED;
+  --accent-dark:   #5B21B6;
+  --accent-glow:   rgba(124, 58, 237, 0.35);
+  --accent-subtle: rgba(124, 58, 237, 0.10);
+  --success:       #10B981;
+  --success-bg:    rgba(16, 185, 129, 0.10);
+  --success-border:rgba(16, 185, 129, 0.25);
+  --error:         #F87171;
+  --error-bg:      rgba(248, 113, 113, 0.08);
+  --error-border:  rgba(248, 113, 113, 0.22);
+  --warning:       #F59E0B;
+  --info:          #818CF8;
+  --info-bg:       rgba(129, 140, 248, 0.08);
+  --info-border:   rgba(129, 140, 248, 0.22);
+  --text:          #F9FAFB;
+  --text-muted:    #9CA3AF;
+  --text-dim:      #4B5563;
+  --sans:          'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:          'Fira Code', 'SF Mono', ui-monospace, monospace;
+  --radius-sm:     6px;
+  --radius:        10px;
+  --radius-lg:     14px;
 }
 
-/* Storage bar */
-.storage-bar-wrap {
-  background: #1a1a26;
-  border-radius: 6px;
-  height: 10px;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Page wrapper ── */
+.cs-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sticky header ── */
+.cs-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.cs-header-inner {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.cs-logo-icon {
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.cs-header-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Main content ── */
+.cs-main {
+  max-width: 660px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 28px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Cards ── */
+.cs-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  margin: 10px 0 6px;
-  border: 1px solid #7c5cfc33;
+  transition: border-color 0.2s;
 }
-.storage-bar {
+
+.cs-card:hover {
+  border-color: var(--border-focus);
+}
+
+.cs-card-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cs-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.cs-card-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cs-card-desc {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.cs-card-body {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Form fields ── */
+.cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* ── Input group ── */
+.cs-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cs-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 9px 13px;
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.cs-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+
+.cs-input::placeholder {
+  color: var(--text-dim);
+}
+
+.cs-select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 9px 36px 9px 13px;
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.cs-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+
+/* ── Buttons ── */
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s, background 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.cs-btn--primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 10px rgba(124, 58, 237, 0.35);
+}
+
+.cs-btn--primary:hover { opacity: 0.9; }
+.cs-btn--primary:active { opacity: 0.8; }
+
+.cs-btn--outline {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.cs-btn--outline:hover {
+  border-color: var(--border-focus);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.cs-btn--danger {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid var(--error-border);
+}
+
+.cs-btn--danger:hover {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: var(--error);
+}
+
+.cs-btn-ghost {
+  all: unset;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.cs-btn-ghost:hover {
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+/* ── Status message ── */
+.cs-status {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.cs-status.status-success {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.cs-status.status-error {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid var(--error-border);
+}
+
+.cs-status.status-info {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-border);
+}
+
+/* ── Privacy note + link row ── */
+.cs-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cs-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.cs-privacy-note svg {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.cs-privacy-note code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+
+.cs-link {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.cs-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.cs-link--github {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ── Radio cards ── */
+.cs-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 13px 15px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cs-radio-card:hover {
+  border-color: var(--border-focus);
+}
+
+.cs-radio-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.cs-radio-card input[type="radio"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.cs-radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cs-radio-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cs-radio-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.cs-nim-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgba(118, 185, 0, 0.14);
+  color: #76B900;
+  border: 1px solid rgba(118, 185, 0, 0.28);
+}
+
+/* ── Slider ── */
+.cs-slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.cs-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-slider-val-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.cs-slider-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 36px;
+  text-align: right;
+}
+
+.cs-slider-unit {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cs-slider {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+}
+
+.cs-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.45);
+  transition: box-shadow 0.15s;
+}
+
+.cs-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 14px rgba(124, 58, 237, 0.65);
+}
+
+.cs-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.45);
+}
+
+/* ── Toggle switch row ── */
+.cs-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.cs-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cs-toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cs-toggle-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.cs-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 23px;
+  flex-shrink: 0;
+}
+
+.cs-switch input { opacity: 0; width: 0; height: 0; }
+
+.cs-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border-focus);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cs-switch-track::before {
+  content: '';
+  position: absolute;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.cs-switch input:checked + .cs-switch-track {
+  background: var(--accent);
+}
+
+.cs-switch input:checked + .cs-switch-track::before {
+  transform: translateX(17px);
+}
+
+/* ── Storage meter ── */
+.cs-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-storage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-storage-bar-wrap {
+  height: 7px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.cs-storage-bar {
   height: 100%;
-  background: linear-gradient(90deg, #7c5cfc, #a78bfa);
-  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent), #A78BFA);
+  border-radius: 99px;
   width: 0%;
-  transition: width 0.4s ease;
+  transition: width 0.45s ease;
 }
-.storage-info {
-  font-size: 0.9rem;
-  color: #8888aa;
-  margin: 0 0 4px;
+
+.cs-storage-bar.warn {
+  background: linear-gradient(90deg, var(--warning), #FCD34D);
 }
-.storage-bar.warn {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+
+.cs-storage-bar.danger {
+  background: linear-gradient(90deg, var(--error), #FCA5A5);
 }
-.storage-bar.danger {
-  background: linear-gradient(90deg, #ef4444, #f87171);
+
+.cs-storage-info {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Danger zone ── */
+.cs-danger-zone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.cs-danger-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* ── About card ── */
+.cs-card--about {
+  background: var(--surface);
+}
+
+.cs-about-row {
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cs-version {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cs-about-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.cs-sep {
+  color: var(--text-dim);
+}
+
+.cs-privacy-inline {
+  font-size: 12px;
+  color: var(--text-dim);
 }

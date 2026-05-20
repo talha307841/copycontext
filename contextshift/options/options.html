@@ -2,75 +2,184 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=380, initial-scale=1.0">
-  <title>ContextShift Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ContextShift — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="options.css">
-  <link href="https://fonts.googleapis.com/css?family=DM+Sans:400,700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div id="cs-options">
-    <h2>ContextShift Settings</h2>
-    <section class="settings-section">
-      <h2>NVIDIA NIM API Key</h2>
-      <p class="description">
-        Powers smart summarization. Get your free key at
-        <a href="https://build.nvidia.com" target="_blank">build.nvidia.com</a>
-        → Sign in → "Get API Key"
-      </p>
-      <div class="input-row">
-        <input
-          type="password"
-          id="nim-api-key"
-          placeholder="nvapi-..."
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button id="save-nim-key" class="btn-primary">Save</button>
-        <button id="test-nim-key" class="btn-secondary">Test Connection</button>
+  <div class="cs-page">
+
+    <!-- ── Header ── -->
+    <header class="cs-header">
+      <div class="cs-header-inner">
+        <div class="cs-logo">
+          <span class="cs-logo-icon">⎈</span>
+          <span>ContextShift</span>
+        </div>
+        <span class="cs-header-label">Settings</span>
       </div>
-      <div class="input-row" style="margin-top:8px;">
-        <select id="nim-model" style="flex:1;padding:8px;border-radius:6px;background:#1a1a2e;color:#f0f0ff;border:1px solid #444;font-size:0.97rem;">
-          <option value="meta/llama-3.2-3b-instruct">meta/llama-3.2-3b-instruct (3B — fast, recommended)</option>
-          <option value="google/gemma-2-2b-it">google/gemma-2-2b-it (2B — fastest)</option>
-          <option value="nvidia/nemotron-mini-4b-instruct">nvidia/nemotron-mini-4b-instruct (4B)</option>
-          <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (8B — highest quality)</option>
-        </select>
-      </div>
-      <p class="privacy-note">
-        🔒 Your key is stored only in Chrome's local storage on this device.
-        It is only ever sent to <code>integrate.api.nvidia.com</code> — never to any other server.
-      </p>
-      <div id="nim-status" class="status-bar" style="display:none;"></div>
-    </section>
-    <section>
-      <label>Summarization Default Mode</label>
-      <div>
-        <input type="radio" name="summ-mode" id="mode-full" value="full" checked /> <label for="mode-full">Full</label>
-        <input type="radio" name="summ-mode" id="mode-smart" value="smart" /> <label for="mode-smart">Smart</label>
-        <input type="radio" name="summ-mode" id="mode-custom" value="custom" /> <label for="mode-custom">Custom</label>
-      </div>
-      <label for="max-len">Max context length</label>
-      <input type="range" id="max-len" min="500" max="4000" step="100" value="2000" />
-      <span id="max-len-val">2000</span> tokens
-    </section>
-    <section>
-      <label><input type="checkbox" id="save-history" checked /> Save history locally</label>
-      <button id="clear-history">Clear all saved history</button>
-    </section>
-    <section class="settings-section">
-      <h2>Storage &amp; Compression</h2>
-      <p class="description">History and context data stored locally on this device.</p>
-      <div class="storage-bar-wrap">
-        <div class="storage-bar" id="storage-bar"></div>
-      </div>
-      <p class="storage-info" id="storage-info">Calculating…</p>
-      <p class="privacy-note">🗜️ <strong>Compression active</strong> — entries are automatically compressed with LZ-String (~50–65% smaller) before being saved.</p>
-      <button id="refresh-storage" class="btn-secondary" style="margin-top:6px;">Refresh</button>
-    </section>
-    <section>
-      <div class="desc">Version 1.0.0 — <a href="https://github.com/yourrepo/contextshift" target="_blank">GitHub</a></div>
-      <div class="desc">No data ever leaves your device.</div>
-    </section>
+    </header>
+
+    <main class="cs-main">
+
+      <!-- ── NVIDIA NIM ── -->
+      <section class="cs-card">
+        <div class="cs-card-header">
+          <div class="cs-card-title">
+            <span class="cs-card-icon">&#x1F9E0;</span>
+            NVIDIA NIM API
+          </div>
+          <p class="cs-card-desc">Powers smart AI summarization. Optional — the extension uses a local fallback without it.</p>
+        </div>
+        <div class="cs-card-body">
+
+          <div class="cs-field">
+            <label class="cs-label" for="nim-api-key">API Key</label>
+            <div class="cs-input-group">
+              <input
+                type="password"
+                id="nim-api-key"
+                class="cs-input"
+                placeholder="nvapi-…"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button id="save-nim-key" class="cs-btn cs-btn--primary">Save</button>
+              <button id="test-nim-key" class="cs-btn cs-btn--outline">Test</button>
+            </div>
+          </div>
+
+          <div class="cs-field">
+            <label class="cs-label" for="nim-model">Model</label>
+            <select id="nim-model" class="cs-select">
+              <option value="meta/llama-3.2-3b-instruct">meta/llama-3.2-3b-instruct &mdash; Fast (recommended)</option>
+              <option value="google/gemma-2-2b-it">google/gemma-2-2b-it &mdash; Fastest</option>
+              <option value="nvidia/nemotron-mini-4b-instruct">nvidia/nemotron-mini-4b-instruct &mdash; Balanced</option>
+              <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct &mdash; Highest quality</option>
+            </select>
+          </div>
+
+          <div id="nim-status" class="cs-status" style="display:none"></div>
+
+          <div class="cs-info-row">
+            <p class="cs-privacy-note">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Key stored only in Chrome local storage &amp; sent only to
+              <code>integrate.api.nvidia.com</code>
+            </p>
+            <a href="https://build.nvidia.com" target="_blank" class="cs-link">Get free key &rarr;</a>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Summarization Mode ── -->
+      <section class="cs-card">
+        <div class="cs-card-header">
+          <div class="cs-card-title">
+            <span class="cs-card-icon">&#x26A1;</span>
+            Summarization Mode
+          </div>
+          <p class="cs-card-desc">Controls how the conversation is packaged when you click Generate in the popup.</p>
+        </div>
+        <div class="cs-card-body">
+
+          <div class="cs-radio-group">
+            <label class="cs-radio-card">
+              <input type="radio" name="summ-mode" id="mode-full" value="full" />
+              <div class="cs-radio-content">
+                <span class="cs-radio-title">Full Context</span>
+                <span class="cs-radio-desc">Sends the entire raw conversation. No API key needed. Most accurate, largest payload.</span>
+              </div>
+            </label>
+            <label class="cs-radio-card">
+              <input type="radio" name="summ-mode" id="mode-smart" value="smart" checked />
+              <div class="cs-radio-content">
+                <span class="cs-radio-title">Smart Summary <span class="cs-nim-badge">NIM</span></span>
+                <span class="cs-radio-desc">AI-compressed handoff via NVIDIA NIM. Concise and context-aware.</span>
+              </div>
+            </label>
+            <label class="cs-radio-card">
+              <input type="radio" name="summ-mode" id="mode-custom" value="custom" />
+              <div class="cs-radio-content">
+                <span class="cs-radio-title">Custom Focus <span class="cs-nim-badge">NIM</span></span>
+                <span class="cs-radio-desc">Target a specific topic or angle when generating the summary.</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="cs-slider-field">
+            <div class="cs-slider-header">
+              <label class="cs-label" for="max-len">Max context length</label>
+              <div class="cs-slider-val-row">
+                <span id="max-len-val" class="cs-slider-val">2000</span>
+                <span class="cs-slider-unit">tokens</span>
+              </div>
+            </div>
+            <input type="range" id="max-len" class="cs-slider" min="500" max="4000" step="100" value="2000" />
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Data & History ── -->
+      <section class="cs-card">
+        <div class="cs-card-header">
+          <div class="cs-card-title">
+            <span class="cs-card-icon">&#x1F5C4;&#xFE0F;</span>
+            Data &amp; History
+          </div>
+        </div>
+        <div class="cs-card-body">
+
+          <div class="cs-toggle-row">
+            <div class="cs-toggle-info">
+              <span class="cs-toggle-label">Save capture history locally</span>
+              <span class="cs-toggle-desc">Keeps the last 10 captures in local storage for quick reuse from the popup.</span>
+            </div>
+            <label class="cs-switch">
+              <input type="checkbox" id="save-history" checked />
+              <span class="cs-switch-track"></span>
+            </label>
+          </div>
+
+          <div class="cs-storage">
+            <div class="cs-storage-header">
+              <span class="cs-label">Storage usage</span>
+              <button id="refresh-storage" class="cs-btn-ghost">&circlearrowleft; Refresh</button>
+            </div>
+            <div class="cs-storage-bar-wrap">
+              <div class="cs-storage-bar" id="storage-bar"></div>
+            </div>
+            <p class="cs-storage-info" id="storage-info">Calculating&hellip;</p>
+          </div>
+
+          <div class="cs-danger-zone">
+            <button id="clear-history" class="cs-btn cs-btn--danger">Clear All History</button>
+            <span class="cs-danger-desc">Permanently removes all saved captures from local storage.</span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── About ── -->
+      <section class="cs-card cs-card--about">
+        <div class="cs-about-row">
+          <span class="cs-version">ContextShift v1.0.0</span>
+          <div class="cs-about-links">
+            <a href="https://github.com/talha307841/copycontext" target="_blank" class="cs-link cs-link--github">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              GitHub
+            </a>
+            <span class="cs-sep">&middot;</span>
+            <span class="cs-privacy-inline">No data ever leaves your device.</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
   </div>
   <script src="../config.js"></script>
   <script src="options.js"></script>

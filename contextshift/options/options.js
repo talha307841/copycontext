@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   qs('clear-history').onclick = function() {
     chrome.storage.local.remove(['cs_history'], () => {
-      alert('History cleared.');
+      showNimStatus('History cleared successfully.', 'success');
       refreshStorageStats();
     });
   };
@@ -180,7 +180,7 @@ function showNimStatus(message, type) {
   if (!el) return;
   el.textContent = message;
   el.style.display = 'block';
-  el.className = `status-bar status-${type}`;
+  el.className = `cs-status status-${type}`;
 
   if (type === 'success') {
     setTimeout(() => { el.style.display = 'none'; }, 4000);

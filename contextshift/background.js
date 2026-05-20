@@ -304,6 +304,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Called from popup capture — saves conversation to cs_last_context + cs_history
+  // (popup can't use CAPTURE_AND_STORE_FROM_TAB because sender.tab is undefined for popup context)
+  if (message.action === 'STORE_CONTEXT_FROM_POPUP') {
+    const { messages, platform } = message;
+    if (!messages || !messages.length) {
+      sendResponse({ success: false, error: 'No messages provided.' });
+      return true;
+    }
+    const fullContext = formatFullContext(messages, platform, platform);
+    const entry = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      sourcePlatform: platform || 'unknown',
+      messageCount: messages.length,
+      messages,
+      preview: fullContext.slice(0, 100),
+      fullContext,
+      summary: ''
+    };
+    (async () => {
+      const settings = await getStorage(['save_history']);
+      await setStorage({ cs_last_context: csCompress(entry) });
+      if (settings.save_history !== false) {
+        await saveToHistory(entry);
+      }
+      sendResponse({ success: true });
+    })();
+    return true;
+  }
+
   if (message.action === 'INJECT_CONTEXT') {
     const { targetUrl, contextText } = message;
     chrome.tabs.create({ url: targetUrl, active: true }, (tab) => {
