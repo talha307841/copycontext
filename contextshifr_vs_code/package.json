@@ -1,0 +1,83 @@
+{
+  "name": "contextshift",
+  "displayName": "ContextShift",
+  "description": "Seamless, compressed AI context handoffs between AI tools and chat panels inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "your-publisher-id",
+  "engines": {
+    "vscode": ">=1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:contextshift.captureContext",
+    "onCommand:contextshift.injectContext",
+    "onCommand:contextshift.showHistory",
+    "onCommand:contextshift.showSettings"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextshift.captureContext",
+        "title": "ContextShift: Capture Context"
+      },
+      {
+        "command": "contextshift.injectContext",
+        "title": "ContextShift: Inject Context"
+      },
+      {
+        "command": "contextshift.showHistory",
+        "title": "ContextShift: Show History"
+      },
+      {
+        "command": "contextshift.showSettings",
+        "title": "ContextShift: Settings"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "ContextShift Settings",
+      "properties": {
+        "contextshift.nimApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "NVIDIA NIM API key (optional)"
+        },
+        "contextshift.summarizationMode": {
+          "type": "string",
+          "enum": ["full", "smart", "custom"],
+          "default": "full",
+          "description": "Summarization mode"
+        },
+        "contextshift.maxContextLength": {
+          "type": "number",
+          "default": 12000,
+          "description": "Maximum context length (characters)"
+        },
+        "contextshift.saveHistory": {
+          "type": "boolean",
+          "default": true,
+          "description": "Save capture history locally"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "vsce": "^2.0.0"
+  },
+  "dependencies": {
+    "lz-string": "^1.4.4"
+  }
+}
